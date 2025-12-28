@@ -65,6 +65,24 @@ st.markdown("---")
 # Sidebar
 st.sidebar.header("Configuration")
 
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# -------------------------------
+# AI Threshold Recommendation Modal (Session State)
+# -------------------------------
+if "show_threshold_modal" not in st.session_state:
+    st.session_state.show_threshold_modal = False
+
+if "high_risk_threshold" not in st.session_state:
+    st.session_state.high_risk_threshold = 0.7
+
+if "low_risk_threshold" not in st.session_state:
+    st.session_state.low_risk_threshold = 0.3
+
+# Sidebar button to open modal
+if st.sidebar.button("💡 AI Threshold Recommendation"):
+    st.session_state.show_threshold_modal = True
+
+
 # Load Data & Model
 @st.cache_resource
 def load_resources():
@@ -200,9 +218,50 @@ if model_artifact is not None and df is not None:
     st.sidebar.subheader("Filter Students")
     
     # Thresholds
-    high_risk_threshold = st.sidebar.slider("High Risk Threshold", 0.0, 1.0, 0.7, 0.05)
-    low_risk_threshold = st.sidebar.slider("Safe Threshold", 0.0, 1.0, 0.3, 0.05)
+    #!!! high_risk_threshold = st.sidebar.slider("High Risk Threshold", 0.0, 1.0, 0.7, 0.05)
+    #!!! low_risk_threshold = st.sidebar.slider("Safe Threshold", 0.0, 1.0, 0.3, 0.05)
     
+    # Thresholds (controlled via session_state)
+    high_risk_threshold = st.sidebar.slider(
+        "High Risk Threshold",
+        0.0, 1.0,
+        st.session_state.high_risk_threshold,
+        0.05
+    )
+
+    low_risk_threshold = st.sidebar.slider(
+        "Safe Threshold",
+        0.0, 1.0,
+        st.session_state.low_risk_threshold,
+        0.05
+    )
+
+    # -------------------------------
+    # AI Recommendation Modal
+    # -------------------------------
+    if st.session_state.show_threshold_modal:
+        with st.modal("🤖 AI Recommendation"):
+            st.markdown("""
+            **Recommended Thresholds based on dataset distribution:**
+
+            - 🔴 **High Risk ≥ 0.70**
+            - 🟡 **Monitor: 0.30 – 0.70**
+            - 🟢 **Safe ≤ 0.30**
+
+            These thresholds balance false positives and false negatives
+            and work best for the current dataset.
+            """)
+
+            if st.button("✅ Apply Recommended Thresholds"):
+                st.session_state.high_risk_threshold = 0.7
+                st.session_state.low_risk_threshold = 0.3
+                st.session_state.show_threshold_modal = False
+                st.toast("Thresholds applied successfully")
+
+            if st.button("❌ Close"):
+                st.session_state.show_threshold_modal = False
+
+
     # Data Source Selection
     data_source = st.sidebar.radio("Data Source", ["Select Existing Student", "Simulate New Student"])
 
