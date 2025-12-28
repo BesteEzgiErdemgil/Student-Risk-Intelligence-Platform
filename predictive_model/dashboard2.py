@@ -216,56 +216,19 @@ if model_artifact is not None and df is not None:
     
     # --- Sidebar Filters ---
     st.sidebar.subheader("Filter Students")
+    
+    # Threshold Sliders
+    st.session_state.high_risk_threshold = st.sidebar.slider(
+        "High Risk Threshold", 0.0, 1.0, 
+        st.session_state.high_risk_threshold, 0.05
+    )
+    
+    st.session_state.low_risk_threshold = st.sidebar.slider(
+        "Safe Threshold", 0.0, 1.0, 
+        st.session_state.low_risk_threshold, 0.05
+    )
 
-    # --- Global Risk Calculation (New Feature) ---
-    with st.spinner("Analyzing all students..."):
-        try:
-            # 1. Transform all data
-            X_pre = preprocessor.transform(X).astype(float)
-            
-            # 2. Batch Prediction
-            all_probs = model.predict_proba(X_pre)
-            all_classes = label_encoder.classes_
-            
-            # 3. Identify Dropout Index
-            d_idx = list(all_classes).index("Dropout") if "Dropout" in all_classes else 0
-            
-            # 4. Extract Risk Scores
-            if all_probs.ndim == 1:
-                # Binary special case
-                p_1 = all_probs
-                risk_scores = p_1 if all_classes[1] == "Dropout" else (1 - p_1)
-            else:
-                risk_scores = all_probs[:, d_idx]
-                
-            # 5. Create Overview DataFrame
-            risk_df = X.copy()
-            risk_df["Risk Score"] = risk_scores
-            
-            # 6. Sort by Risk (High to Low)
-            risk_df = risk_df.sort_values(by="Risk Score", ascending=False)
-            
-            # 7. Display at Top
-            st.subheader("📋 Student Risk Overview")
-            
-            # Formatting for display
-            display_cols = ["Risk Score"] + [c for c in risk_df.columns if c != "Risk Score"]
-            
-            # Helper to format percentages
-            def color_risk(val):
-                color = 'red' if val > st.session_state.high_risk_threshold else ('green' if val < st.session_state.low_risk_threshold else 'orange')
-                return f'color: {color}'
 
-            st.dataframe(
-                risk_df[display_cols].style
-                .format({"Risk Score": "{:.1%}"})
-                .applymap(color_risk, subset=["Risk Score"]),
-                height=300,
-                use_container_width=True
-            )
-            
-        except Exception as e:
-            st.error(f"Global analysis failed: {e}")
 
     # --- Sidebar Filters ---
     
@@ -273,71 +236,100 @@ if model_artifact is not None and df is not None:
     # If "Simulate", we skip the list selection logic.
     # If "Existing", we use the list list selection.
     
+    # Data Source Selection
     data_source = st.sidebar.radio("Data Source", ["Select Existing Student", "Simulate New Student"])
     
     selected_student_data = None
     selected_student_index = None
 
     if data_source == "Select Existing Student":
-        # --- Global Risk Calculation & List ---
+        # --- 1. Global Risk Calculation & List ---
         with st.spinner("Analyzing all students..."):
             try:
-                # 1. Transform all data
+                # Transform & Predict for ALL
                 X_pre = preprocessor.transform(X).astype(float)
-                
-                # 2. Batch Prediction
                 all_probs = model.predict_proba(X_pre)
                 all_classes = label_encoder.classes_
-                
-                # 3. Identify Dropout Index
                 d_idx = list(all_classes).index("Dropout") if "Dropout" in all_classes else 0
                 
-                # 4. Extract Risk Scores
                 if all_probs.ndim == 1:
                     p_1 = all_probs
                     risk_scores = p_1 if all_classes[1] == "Dropout" else (1 - p_1)
                 else:
                     risk_scores = all_probs[:, d_idx]
                     
-                # 5. Create Overview DataFrame
                 risk_df = X.copy()
                 risk_df["Risk Score"] = risk_scores
-                
-                # 6. Sort by Risk (High to Low)
                 risk_df = risk_df.sort_values(by="Risk Score", ascending=False)
                 
-                # 7. Display at Top
+                # --- 2. Sidebar Controls (Restored) ---
+                # Sync Logic: 
+                # We have 'selected_student_idx' in session_state.
+                # If sidebar changes, it updates session_state.
+                # If list selection changes, it updates session_state.
+
+                if "selected_student_idx" not in st.session_state:
+                    st.session_state.selected_student_idx = risk_df.index[0]
+
+                # Helper to find integer position in list
+                def get_index_pos(val, options):
+                    try: 
+                        return list(options).index(val) 
+                    except: 
+                        return 0
+
+                # Sidebar Selectbox
+                # We use a callback or just check value changes
+                sb_student = st.sidebar.selectbox(
+                    "Select Student Index", 
+                    options=risk_df.index,
+                    index=get_index_pos(st.session_state.selected_student_idx, risk_df.index),
+                    key="sb_student_select"
+                )
+                
+                # Update state from sidebar immediately if it changed
+                if sb_student != st.session_state.selected_student_idx:
+                    st.session_state.selected_student_idx = sb_student
+                    # No rerun needed here, the flow continues with the new value
+
+                # --- 3. Main List Display ---
                 st.subheader("📋 Student Risk Overview")
-                st.markdown("Select a student from the list below to view their detailed profile.")
+                st.markdown("Select a student below OR use the sidebar to view details.")
                 
-                # Formatting for display
                 display_cols = ["Risk Score"] + [c for c in risk_df.columns if c != "Risk Score"]
-                
-                # Helper to format percentages
                 def color_risk(val):
                     color = 'red' if val > st.session_state.high_risk_threshold else ('green' if val < st.session_state.low_risk_threshold else 'orange')
                     return f'color: {color}'
 
-                # INTERACTIVE DATAFRAME
+                # Create a pre-selection list if possible? 
+                # Streamlit's dataframe selection is UI -> Code. 
+                # Code -> UI selection is not fully supported in simple `st.dataframe` without experimental features or AGGrid.
+                # We will rely on UI selection overriding sidebar if clicked.
+                
                 event = st.dataframe(
                     risk_df[display_cols].style
                     .format({"Risk Score": "{:.1%}"})
                     .applymap(color_risk, subset=["Risk Score"]),
-                    height=400,
+                    height=300,
                     use_container_width=True,
                     on_select="rerun",
-                    selection_mode="single-row"
+                    selection_mode="single-row",
+                    key="risk_list_table" 
                 )
                 
-                # Check Selection
+                # Handle List Selection
                 if len(event.selection.rows) > 0:
                     selected_row_idx = event.selection.rows[0]
-                    # Get index from the SORTED dataframe using iloc
-                    selected_student_index = risk_df.index[selected_row_idx]
-                    selected_student_data = X.loc[[selected_student_index]]
-                else:
-                    st.info("👆 Please select a student from the list above to see details.")
-                    st.stop() # Stop rendering the rest
+                    list_selected_idx = risk_df.index[selected_row_idx]
+                    
+                    # If list click is different from current state, update state
+                    if list_selected_idx != st.session_state.selected_student_idx:
+                         st.session_state.selected_student_idx = list_selected_idx
+                         st.rerun() # Rerun to sync sidebar
+
+                # --- 4. Final Selection Resolution ---
+                selected_student_index = st.session_state.selected_student_idx
+                selected_student_data = X.loc[[selected_student_index]]
                 
             except Exception as e:
                 st.error(f"Global analysis/selection failed: {e}")
@@ -395,67 +387,71 @@ if model_artifact is not None and df is not None:
             'Curricular_units_2nd_sem_(approved)': [s_u2_approved],
             'Curricular_units_2nd_sem_(grade)': [s_u2_grade]
         }
-        selected_student_data = pd.DataFrame(sim_data)
-
+        selected_student_data = pd.DataFrame(sim_data) # This will be used by the rest of the app
     
-    # --- Prediction & Display (Common Logic) ---
-    if selected_student_data is not None:
-        
-        # Predict
-        try:
-            student_data_pre = preprocessor.transform(selected_student_data).astype(float)
-            probs = model.predict_proba(student_data_pre)
-            classes = label_encoder.classes_
-        except Exception as e:
-            st.error(f"Prediction Error: {e}")
-            st.stop()
-        
-        if classes is None or probs is None:
-            st.error("Model prediction failed. Check logs.")
-            st.stop()
+    # --- Prediction Logic ---
+    # Predict
+    # GAM needs preprocessed data
+    classes = None  # Safe initialization
+    probs = None
 
-        # Find index of "Dropout" class
-        dropout_idx = list(classes).index("Dropout") if "Dropout" in classes else 0
-        
-        if probs.ndim == 1:
-            p_1 = probs[0]
-            dropout_prob = p_1 if classes[1] == "Dropout" else (1 - p_1)
-        else:
-            dropout_prob = probs[0][dropout_idx]
-        
-        # Display Status (Sidebar)
-        st.sidebar.markdown("### Prediction Status")
-        if dropout_prob >= high_risk_threshold:
-            st.sidebar.error(f"🚨 HIGH RISK ({dropout_prob:.1%})")
-        elif dropout_prob <= low_risk_threshold:
-            st.sidebar.success(f"✅ SAFE ({dropout_prob:.1%})")
-        else:
-            st.sidebar.warning(f"⚠️ MONITOR ({dropout_prob:.1%})")
+    try:
+        student_data_pre = preprocessor.transform(selected_student_data).astype(float)
+        probs = model.predict_proba(student_data_pre)
+        classes = label_encoder.classes_
+    except Exception as e:
+        st.error(f"Prediction Error: {e}")
+        st.stop()
+    
+    if classes is None or probs is None:
+        st.error("Model prediction failed. Check logs.")
+        st.stop()
+
+    # Find index of "Dropout" class
+    dropout_idx = list(classes).index("Dropout") if "Dropout" in classes else 0
+    # Handle prob shape (n_samples, n_classes) or (n_samples,) if binary
+    if probs.ndim == 1:
+        # Binary case for pygam often returns just P(y=1)
+        # We need to check label encoder to see which is 1
+        # Typically 1 is the second class in classes_
+        p_1 = probs[0]
+        dropout_prob = p_1 if classes[1] == "Dropout" else (1 - p_1)
+    else:
+        dropout_prob = probs[0][dropout_idx]
+    
+    # Display Status (Sidebar) -- RESTORED
+    st.sidebar.markdown("### Prediction Status")
+    if dropout_prob >= st.session_state.high_risk_threshold:
+        st.sidebar.error(f"🚨 HIGH RISK ({dropout_prob:.1%})")
+    elif dropout_prob <= st.session_state.low_risk_threshold:
+        st.sidebar.success(f"✅ SAFE ({dropout_prob:.1%})")
+    else:
+        st.sidebar.warning(f"⚠️ MONITOR ({dropout_prob:.1%})")
             
-        # --- Main Content Details ---
+    # --- Main Content Details ---
+    
+    st.markdown("---") # Separator between list and details
+
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.subheader(f"Student Profile (ID: {selected_student_index})")
+
+        # --- Representative Data Check ---
+        sel_course = selected_student_data["Course"].iloc[0] if "Course" in selected_student_data.columns else None
         
-        st.markdown("---") # Separator between list and details
+        app_mode_col = "Application_mode" if "Application_mode" in selected_student_data.columns else ("Application mode" if "Application mode" in selected_student_data.columns else None)
+        sel_app_mode = selected_student_data[app_mode_col].iloc[0] if app_mode_col else None
 
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            st.subheader(f"Student Profile (ID: {selected_student_index})")
+        if sel_course is not None and data_source != "Simulate New Student":
+            # Only check existing data counts if we have X loaded
+             course_count = X[X["Course"] == sel_course].shape[0] if 'X' in locals() else 50
+             if course_count < 50:
+                 st.warning(f"⚠️ Low Sample Size: This Course has only {course_count} students. Predictions may be less reliable.")
 
-            # --- Representative Data Check ---
-            sel_course = selected_student_data["Course"].iloc[0] if "Course" in selected_student_data.columns else None
-            
-            app_mode_col = "Application_mode" if "Application_mode" in selected_student_data.columns else ("Application mode" if "Application mode" in selected_student_data.columns else None)
-            sel_app_mode = selected_student_data[app_mode_col].iloc[0] if app_mode_col else None
-
-            if sel_course is not None and data_source != "Simulate New Student":
-                # Only check existing data counts if we have X loaded
-                 course_count = X[X["Course"] == sel_course].shape[0] if 'X' in locals() else 50
-                 if course_count < 50:
-                     st.warning(f"⚠️ Low Sample Size: This Course has only {course_count} students. Predictions may be less reliable.")
-
-            # Create a display copy to show readable labels
+        # Create a display copy to show readable labels
         display_data = selected_student_data.copy()
-        
+    
         # Helper to safely get value
         def get_val(col):
             return display_data[col].iloc[0] if col in display_data.columns else "N/A"
