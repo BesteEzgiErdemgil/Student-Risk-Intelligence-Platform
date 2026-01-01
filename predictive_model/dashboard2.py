@@ -159,11 +159,27 @@ def load_resources():
                 pass
 
     # 2. Clean extreme outliers (>1e10)
+    # Correcting data issue where decimal point is missing (e.g. 1.34e16 instead of 13.4)
     numeric_cols_temp = df.select_dtypes(include=[np.number]).columns
     for c in numeric_cols_temp:
-        mask_outliers = df[c] > 1e10 
+        mask_outliers = df[c] > 1e10
         if mask_outliers.any():
-            df.loc[mask_outliers, c] = np.nan
+            # Assume these are shifted by 1e15 (16-17 digits -> xx.xxxxx)
+            df.loc[mask_outliers, c] = df.loc[mask_outliers, c] / 1e15
+    
+    # 3. Robust Fix for Grades specifically (ensure range 0-20)
+    # This handles cases like 13875 (should be 13.875) which are not > 1e10
+    grade_cols = [c for c in df.columns if 'grade' in c.lower()]
+    for c in grade_cols:
+        if pd.api.types.is_numeric_dtype(df[c]):
+             # Apply heuristic: recursive division by 10 until <= 20
+             def fix_grade_scale(x):
+                 if pd.isna(x): return x
+                 while x > 20.0:
+                     x /= 10.0
+                 return x
+             
+             df[c] = df[c].apply(fix_grade_scale)
             
     return model_artifact, df
 
