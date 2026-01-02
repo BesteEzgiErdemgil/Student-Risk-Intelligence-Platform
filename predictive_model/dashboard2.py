@@ -279,27 +279,130 @@ if model_artifact is not None and df is not None:
                 risk_df["Risk Score"] = risk_scores
                 risk_df = risk_df.sort_values(by="Risk Score", ascending=False)
                 
+                # --- NEW: Group Filters ---
+                st.sidebar.markdown("---")
+                st.sidebar.subheader("Group Filters")
+                
+                # Course Filter
+                # Ensure we have the map accessible. course_map is global.
+                available_courses = sorted(list(course_map.values()))
+                sel_course_label = st.sidebar.selectbox("Filter by Course", ["All"] + available_courses)
+                
+                # App Mode Filter
+                available_app_modes = sorted(list(application_mode_map.values()))
+                sel_app_mode_label = st.sidebar.selectbox("Filter by Mode", ["All"] + available_app_modes)
+                
+                # Apply Filters
+                filtered_risk_df = risk_df.copy()
+                
+                if sel_course_label != "All":
+                    # Map label back to ID
+                    c_rev = {v: k for k, v in course_map.items()}
+                    c_id = c_rev.get(sel_course_label)
+                    if c_id:
+                        filtered_risk_df = filtered_risk_df[filtered_risk_df["Course"] == c_id]
+                        
+                if sel_app_mode_label != "All":
+                    am_rev = {v: k for k, v in application_mode_map.items()}
+                    am_id = am_rev.get(sel_app_mode_label)
+                    if am_id:
+                         # Handle potentially different column names
+                         col_name = "Application_mode" if "Application_mode" in risk_df.columns else "Application mode"
+                         filtered_risk_df = filtered_risk_df[filtered_risk_df[col_name] == am_id]
+
+                # --- NEW: Group Summary ---
+                st.subheader("📊 Group Summary")
+                
+                # Metrics
+                total_students = len(filtered_risk_df)
+                
+                # High Risk
+                high_risk_students = filtered_risk_df[filtered_risk_df["Risk Score"] > st.session_state.high_risk_threshold]
+                high_risk_count = len(high_risk_students)
+                
+                # Likely Graduate (Safe)
+                safe_students = filtered_risk_df[filtered_risk_df["Risk Score"] <= st.session_state.low_risk_threshold]
+                safe_count = len(safe_students)
+                
+                avg_risk = filtered_risk_df["Risk Score"].mean() if total_students > 0 else 0.0
+                
+                # Disclaimer
+                if 0 < total_students < 30:
+                    st.warning(f"⚠️ Small Sample Size: This group has only {total_students} students. Statistical insights may be limited.")
+                elif total_students == 0:
+                    st.warning("No students match the selected filters.")
+                    
+                # Display Metrics and Intervention in Columns
+                gs_col1, gs_col2 = st.columns([2, 1])
+                
+                with gs_col1:
+                    m1, m2, m3, m4 = st.columns(4)
+                    m1.metric("Total Students", total_students)
+                    m2.metric("High Risk Students", high_risk_count, delta_color="inverse")
+                    m3.metric("Students Likely to Graduate", safe_count, delta_color="normal") # Green is good
+                    m4.metric("Avg Risk", f"{avg_risk:.1%}")
+                
+                with gs_col2:
+                    # Bulk Intervention
+                    with st.expander("📢 Bulk Actions"):
+                        # Target Selection
+                        target_group = st.radio("Target Group", ["High Risk", "Likely Graduates"], horizontal=True, label_visibility="collapsed")
+                        
+                        if target_group == "High Risk":
+                            if high_risk_count > 0:
+                                st.write(f"**Target:** {high_risk_count} Risk Students")
+                                action_type = st.selectbox("Action", ["Send Email", "Schedule Meeting", "Notify Tutors"], key="bulk_action_risk")
+                                
+                                if st.button(f"Execute Action"):
+                                     st.success(f"'{action_type}' queued for {high_risk_count} students.")
+                            else:
+                                st.info("No high risk students found.")
+                                
+                        else: # Likely Graduates
+                            if safe_count > 0:
+                                st.write(f"**Target:** {safe_count} Safe Students")
+                                action_type = st.selectbox("Action", ["Send Kudos", "Invite to Honor Society", "Ask for Testimonial"], key="bulk_action_safe")
+                                
+                                if st.button(f"Execute Action"):
+                                     st.balloons() # Fun effect for kudos
+                                     st.success(f"'{action_type}' queued for {safe_count} students!")
+                            else:
+                                st.info("No likely graduates found.")
+                        
+                st.markdown("---")
+
+                # Update risk_df to be the filtered version for the rest of the UI (List & Selection)
+                risk_df = filtered_risk_df
+                
                 # --- Sidebar Sync Logic ---
+                # Check if current selection is still valid
                 if "selected_student_idx" not in st.session_state:
+                     st.session_state.selected_student_idx = risk_df.index[0] if not risk_df.empty else None
+                elif not risk_df.empty and st.session_state.selected_student_idx not in risk_df.index:
                      st.session_state.selected_student_idx = risk_df.index[0]
-                     
+
                 # Helper
                 def get_index_pos(val, options):
                     try: return list(options).index(val) 
                     except: return 0
 
                 # Sidebar Selectbox
+                sb_options = risk_df.index if not risk_df.empty else []
                 sb_student = st.sidebar.selectbox(
                     "Select Student Index", 
-                    options=risk_df.index,
-                    index=get_index_pos(st.session_state.selected_student_idx, risk_df.index),
+                    options=sb_options,
+                    index=get_index_pos(st.session_state.selected_student_idx, sb_options),
                     key="sb_student_select"
                 )
                 
                 # Update state from sidebar immediately if it changed
-                if sb_student != st.session_state.selected_student_idx:
+                if sb_student is not None and sb_student != st.session_state.selected_student_idx:
                     st.session_state.selected_student_idx = sb_student
                     # No rerun needed here, the flow continues with the new value
+                
+                if risk_df.empty:
+                    st.error("No students found with current filters.")
+                    st.stop()
 
                 # --- List Display ---
                 st.subheader("📋 Student Risk Overview")
