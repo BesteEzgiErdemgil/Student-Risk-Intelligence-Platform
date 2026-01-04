@@ -310,6 +310,67 @@ if model_artifact is not None and df is not None:
                          col_name = "Application_mode" if "Application_mode" in risk_df.columns else "Application mode"
                          filtered_risk_df = filtered_risk_df[filtered_risk_df[col_name] == am_id]
 
+                # --- NEW: Dynamic Attribute Filters ---
+                st.sidebar.markdown("---")
+                with st.sidebar.expander("🛠️ Advanced Filters"):
+                    # Exclude 'Risk Score' and 'Target'
+                    cols_to_exclude = ["Risk Score"]
+                    if "target_col" in locals():
+                        cols_to_exclude.append(target_col)
+                        
+                    # Get available columns based on original df logic (but using risk_df for current state)
+                    available_attribs = sorted([c for c in risk_df.columns if c not in cols_to_exclude])
+                    
+                    selected_attribs = st.multiselect(
+                        "Add Custom Filter", 
+                        options=available_attribs,
+                        key="dynamic_filter_multiselect"
+                    )
+                    
+                    for attr in selected_attribs:
+                        # Check type
+                        col_data = risk_df[attr]
+                        is_numeric = pd.api.types.is_numeric_dtype(col_data)
+                        
+                        # Heuristic: if many unique numeric values, use slider. If few, use select.
+                        unique_count = col_data.nunique()
+                        
+                        if is_numeric and unique_count > 10:
+                            min_val = float(col_data.min())
+                            max_val = float(col_data.max())
+                            
+                            if min_val == max_val:
+                                st.caption(f"{attr}: Constant value {min_val}")
+                            else:
+                                rng = st.slider(
+                                    f"{attr}", 
+                                    min_value=min_val, 
+                                    max_value=max_val, 
+                                    value=(min_val, max_val),
+                                    key=f"dyn_slider_{attr}"
+                                )
+                                filtered_risk_df = filtered_risk_df[
+                                    (filtered_risk_df[attr] >= rng[0]) & 
+                                    (filtered_risk_df[attr] <= rng[1])
+                                ]
+                        else:
+                            # Categorical or Low-Cardinality Numeric
+                            # Convert to string for display consistency
+                            unique_vals = sorted(col_data.dropna().unique())
+                            unique_vals_str = [str(x) for x in unique_vals]
+                            
+                            sel_vals = st.multiselect(
+                                f"{attr}",
+                                options=unique_vals_str,
+                                default=unique_vals_str,
+                                key=f"dyn_multi_{attr}"
+                            )
+                            
+                            # Filter logic
+                            if len(sel_vals) < len(unique_vals_str):
+                                mask = col_data.astype(str).isin(sel_vals)
+                                filtered_risk_df = filtered_risk_df[mask]
+
                 # --- NEW: Group Summary ---
                 st.subheader("📊 Group Summary")
                 
@@ -407,7 +468,17 @@ if model_artifact is not None and df is not None:
                 # --- List Display ---
                 st.subheader("📋 Student Risk Overview")
                 
-                display_cols = ["Risk Score"] + [c for c in risk_df.columns if c != "Risk Score"]
+                # --- Column Visibility ---
+                all_cols = list(risk_df.columns)
+                default_cols = ["Risk Score"] + [c for c in all_cols if c != "Risk Score"]
+                # Limit default columns if too many? For now show all as requested, but give control.
+                
+                with st.expander("👁️ Show/Hide Columns"):
+                    display_cols = st.multiselect("Select Columns to Display", options=all_cols, default=default_cols)
+                
+                if not display_cols: 
+                    st.warning("Please select at least one column to display.")
+                    display_cols = ["Risk Score"]
                 def color_risk(val):
                     color = 'red' if val > st.session_state.high_risk_threshold else ('green' if val < st.session_state.low_risk_threshold else 'orange')
                     return f'color: {color}'
