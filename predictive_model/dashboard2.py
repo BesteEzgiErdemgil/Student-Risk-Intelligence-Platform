@@ -338,7 +338,7 @@ if model_artifact is not None and df is not None:
                 
                 # --- NEW: Group Filters ---
                 st.sidebar.markdown("---")
-                st.sidebar.subheader("Group Filters")
+                st.sidebar.subheader("Filter Students")
                 
                 # Course Filter
                 # Ensure we have the map accessible. course_map is global.
@@ -368,65 +368,60 @@ if model_artifact is not None and df is not None:
                          filtered_risk_df = filtered_risk_df[filtered_risk_df[col_name] == am_id]
 
                 # --- NEW: Dynamic Attribute Filters ---
-                st.sidebar.markdown("---")
-                with st.sidebar.expander("🛠️ Advanced Filters"):
-                    # Exclude 'Risk Score' and 'Target'
-                    cols_to_exclude = ["Risk Score"]
-                    if "target_col" in locals():
-                        cols_to_exclude.append(target_col)
-                        
-                    # Get available columns based on original df logic (but using risk_df for current state)
-                    available_attribs = sorted([c for c in risk_df.columns if c not in cols_to_exclude])
-                    
+                # Exclude 'Risk Score' and 'Target' and the ones already filtered above
+                cols_to_exclude = ["Risk Score"]
+                if "target_col" in locals():
+                    cols_to_exclude.append(target_col)
+                
+                # Also exclude Course and App Mode relative columns as they are handled above
+                # We check for variations of names commonly found
+                cols_to_exclude.extend(["Course", "Application_mode", "Application mode"])
+
+                # Get available columns based on original df logic (but using risk_df for current state)
+                available_attribs = sorted([c for c in risk_df.columns if c not in cols_to_exclude])
+                
+                # User Request: "like ceteris paribus... open... attributes not all visible... select to see"
+                with st.sidebar.expander("Advanced Attributes"):
                     selected_attribs = st.multiselect(
-                        "Add Custom Filter", 
+                        "Select Attributes to Filter", 
                         options=available_attribs,
                         key="dynamic_filter_multiselect"
                     )
                     
                     for attr in selected_attribs:
-                        # Check type
                         col_data = risk_df[attr]
-                        is_numeric = pd.api.types.is_numeric_dtype(col_data)
                         
-                        # Heuristic: if many unique numeric values, use slider. If few, use select.
-                        unique_count = col_data.nunique()
-                        
-                        if is_numeric and unique_count > 10:
-                            min_val = float(col_data.min())
-                            max_val = float(col_data.max())
+                        # Force numeric conversion for safety if possible
+                        try:
+                            # Attempt to convert to numeric to find min/max
+                            # If it's already numeric, this is cheap.
+                            c_num = pd.to_numeric(col_data, errors='coerce')
                             
+                            min_val = float(c_num.min())
+                            max_val = float(c_num.max())
+                            
+                            if pd.isna(min_val) or pd.isna(max_val):
+                                 # Fallback for completely non-numeric
+                                 continue
+
                             if min_val == max_val:
-                                st.caption(f"{attr}: Constant value {min_val}")
+                                st.caption(f"{attr}: Constant {min_val}")
                             else:
                                 rng = st.slider(
                                     f"{attr}", 
                                     min_value=min_val, 
                                     max_value=max_val, 
                                     value=(min_val, max_val),
-                                    key=f"dyn_slider_{attr}"
+                                    key=f"slider_{attr}"
                                 )
+                                
                                 filtered_risk_df = filtered_risk_df[
                                     (filtered_risk_df[attr] >= rng[0]) & 
                                     (filtered_risk_df[attr] <= rng[1])
                                 ]
-                        else:
-                            # Categorical or Low-Cardinality Numeric
-                            # Convert to string for display consistency
-                            unique_vals = sorted(col_data.dropna().unique())
-                            unique_vals_str = [str(x) for x in unique_vals]
-                            
-                            sel_vals = st.multiselect(
-                                f"{attr}",
-                                options=unique_vals_str,
-                                default=unique_vals_str,
-                                key=f"dyn_multi_{attr}"
-                            )
-                            
-                            # Filter logic
-                            if len(sel_vals) < len(unique_vals_str):
-                                mask = col_data.astype(str).isin(sel_vals)
-                                filtered_risk_df = filtered_risk_df[mask]
+                        
+                        except Exception as e:
+                            pass
 
                 # --- NEW: Group Summary ---
                 st.subheader("📊 Group Summary")
