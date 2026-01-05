@@ -698,7 +698,7 @@ if model_artifact is not None and df is not None:
                 
                 with gs_col2:
                     # Bulk Intervention
-                    with st.expander("📢 Bulk Actions"):
+                    with st.expander("Group Intervention"):
                         # Target Selection
                         target_group = st.radio(
                             "Target Group", 
@@ -1260,7 +1260,7 @@ if model_artifact is not None and df is not None:
                 margin_left = 0.25 
 
                 # 1. RISK FACTORS
-                st.markdown("#### ⚠️ Risk Factors")
+                st.markdown("#### Risk Factors")
                 if not risk_df.empty:
                     h_risk = get_plot_height(len(risk_df))
                     # Increased figsize width from 5 to 12
@@ -1288,7 +1288,7 @@ if model_artifact is not None and df is not None:
                 st.write("") 
                         
                 # 2. PROTECTIVE FACTORS (Stacked below)
-                st.markdown("#### 🛡️ Protective Factors")
+                st.markdown("#### Protective Factors")
                 if not protective_df.empty:
                     h_prot = get_plot_height(len(protective_df))
                     # Increased figsize width from 5 to 12
@@ -1319,7 +1319,7 @@ if model_artifact is not None and df is not None:
         st.markdown("---")
 
         # --- Ceteris Paribus / What-If Analysis (Moved) ---
-        with st.expander("🛠️ Ceteris Paribus Analysis (What-If?)"):
+        with st.expander("Ceteris Paribus Analysis (What-If?)"):
             st.markdown("Simulate changes to this student's profile to see how the risk changes.")
             
             # Form for simulation
