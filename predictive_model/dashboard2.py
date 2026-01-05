@@ -1002,7 +1002,7 @@ if model_artifact is not None and df is not None:
              t_c1, t_c2 = st.columns([1, 3])
              with t_c1:
                  is_tracked_input = st.checkbox(
-                     f"💾 Mark as Tracked (ID: {selected_student_index})", 
+                     f"Mark as Tracked (ID: {selected_student_index})", 
                      value=curr_tracked,
                      key=key_track,
                      on_change=on_track_change
