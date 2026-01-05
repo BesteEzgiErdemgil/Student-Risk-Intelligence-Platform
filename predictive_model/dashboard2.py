@@ -1278,11 +1278,7 @@ if model_artifact is not None and df is not None:
         
         st.info(explanation)
         
-        st.markdown("### Counselor Actions")
-        action = st.selectbox("Recommended Action", ["None", "Send Email", "Schedule Meeting", "Refer to Tutor"])
-        
-        if st.button("Confirm Action"):
-            st.success(f"Action '{action}' recorded for Student {selected_student_index}.")
+
 
 
 else:
