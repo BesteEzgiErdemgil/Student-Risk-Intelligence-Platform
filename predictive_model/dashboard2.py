@@ -62,6 +62,57 @@ st.set_page_config(page_title="Student Success Dashboard (v2 - 5Fold)", layout="
 st.title("🎓 Student Success & Dropout Risk Dashboard (v2.1 - Tracker Active)")
 st.markdown("---")
 
+# --- CSS STYLING ---
+st.markdown("""
+<style>
+/* Custom Slider Handle Colors */
+/* Left Handle (Safe) - Green */
+div[data-testid="stSlider"] div[data-baseweb="slider"] div[role="slider"]:nth-of-type(1) {
+    background-color: #28a745 !important;
+    border-color: #28a745 !important;
+    color: #28a745 !important;
+}
+div[data-testid="stSlider"] div[data-baseweb="slider"] div[role="slider"]:nth-of-type(1) * {
+    color: #28a745 !important;
+}
+
+/* Right Handle (Risk) - Dark Red */
+div[data-testid="stSlider"] div[data-baseweb="slider"] div[role="slider"]:nth-of-type(2) {
+    background-color: #8b0000 !important;
+    border-color: #8b0000 !important;
+    color: #8b0000 !important;
+}
+div[data-testid="stSlider"] div[data-baseweb="slider"] div[role="slider"]:nth-of-type(2) * {
+    color: #8b0000 !important;
+}
+
+/* Moving Labels */
+div[data-testid="stSlider"] div[data-baseweb="slider"] div[role="slider"]:nth-of-type(1)::after {
+    content: "Safe";
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #28a745;
+    font-size: 0.75rem;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+div[data-testid="stSlider"] div[data-baseweb="slider"] div[role="slider"]:nth-of-type(2)::after {
+    content: "High Risk";
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #8b0000;
+    font-size: 0.75rem;
+    font-weight: bold;
+    white-space: nowrap;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # Sidebar
 st.sidebar.header("Configuration")
 
@@ -291,55 +342,12 @@ if model_artifact is not None and df is not None:
     st.sidebar.subheader("Filter Students")
     
     # Threshold Sliders
-    # Combined Risk Threshold Slider
     risk_range = st.sidebar.slider(
         "Risk Threshold", 0.0, 1.0, 
         (st.session_state.low_risk_threshold, st.session_state.high_risk_threshold), 
         0.05
     )
-    st.session_state.low_risk_threshold = risk_range[0]
-    st.session_state.high_risk_threshold = risk_range[1]
-
-    # --- CSS Styling for Slider Points & Track ---
-    # We target the specific elements within the BaseWeb slider component.
-    # 1. Track Background: Static Gradient from Green (0%) to Red (100%)
-    # 2. Selection Bar (Middle): Solid Yellow
-    # 3. Thumbs: Left Green, Right Red
-    
-    slider_styles = """
-    <style>
-    /* Scope to the Sidebar and the Slider component */
-    [data-testid="stSidebar"] [data-testid="stSlider"] div[data-baseweb="slider"] > div > div:first-child {
-        background: linear-gradient(90deg, #4CAF50 0%, #F44336 100%) !important;
-        opacity: 1.0 !important; /* Full vibrancy needed to avoid dull look */
-    }
-    
-    /* Middle Selection Bar (Fill) */
-    [data-testid="stSidebar"] [data-testid="stSlider"] div[data-baseweb="slider"] > div > div:nth-child(2) {
-        background-color: #FFEB3B !important;
-        opacity: 1 !important;
-    }
-
-    /* Thumbs (Slider Points) */
-    /* Left Thumb -> Green */
-    [data-testid="stSidebar"] [data-testid="stSlider"] div[data-baseweb="slider"] div[role="slider"]:nth-of-type(1) {
-        background-color: #4CAF50 !important;
-        border-color: #4CAF50 !important;
-    }
-    
-    /* Right Thumb -> Red */
-    [data-testid="stSidebar"] [data-testid="stSlider"] div[data-baseweb="slider"] div[role="slider"]:nth-of-type(2) {
-        background-color: #F44336 !important;
-        border-color: #F44336 !important;
-    }
-    
-    /* Thumb value label workaround (Optional/Best Effort) 
-       This attempts to color the floated value above the thumb if it exists in this structure,
-       but Streamlit often puts values elsewhere. We focus on the thumb itself.
-    */
-    </style>
-    """
-    st.sidebar.markdown(slider_styles, unsafe_allow_html=True)
+    st.session_state.low_risk_threshold, st.session_state.high_risk_threshold = risk_range
 
 
 
