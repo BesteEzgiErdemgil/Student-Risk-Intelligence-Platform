@@ -857,14 +857,12 @@ if model_artifact is not None and df is not None:
                     return styles
 
                 # Display with Styler
-                event = st.dataframe(
+                st.dataframe(
                     merged_df[display_cols].style
                     .format({"Risk Score": "{:.1%}"})
                     .apply(color_rows, axis=1),
                     height=300,
                     use_container_width=True,
-                    on_select="rerun",
-                    selection_mode="single-row",
                     key="risk_list_table" 
                 )
 
@@ -877,16 +875,6 @@ if model_artifact is not None and df is not None:
                     )
                     if not st.session_state.risk_list_display_cols:
                          st.warning("Please select at least one column.")
-                
-                # Handle List Selection
-                if len(event.selection.rows) > 0:
-                    selected_row_idx = event.selection.rows[0]
-                    list_selected_idx = risk_df.index[selected_row_idx]
-                    
-                    # If list click is different from current state, update state
-                    if list_selected_idx != st.session_state.selected_student_idx:
-                         st.session_state.selected_student_idx = list_selected_idx
-                         st.rerun() # Rerun to sync sidebar
 
                 # --- Valid Selection? ---
                 selected_student_index = st.session_state.selected_student_idx
