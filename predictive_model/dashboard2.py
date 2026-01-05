@@ -706,7 +706,7 @@ if model_artifact is not None and df is not None:
                         # Target Selection
                         target_group = st.radio(
                             "Target Group", 
-                            ["High Risk", "Medium Risk", "Likely Graduates"], 
+                            ["High Risk", "Medium Risk", "Likely Graduates", "Dean's List Students"], 
                             horizontal=True, 
                             label_visibility="collapsed"
                         )
@@ -719,12 +719,9 @@ if model_artifact is not None and df is not None:
                             "Notify Tutors About High Risk Students"
                         ]
 
-                        # Special Logic for Likely Graduates -> Dean's List
-                        filter_top_5 = False
-                        if target_group == "Likely Graduates":
-                            filter_top_5 = st.checkbox("Recommend Candidates for Dean's List (Top 5)")
-                            if filter_top_5:
-                                common_actions.append("Send E-Mail: Dean's List Acceptance")
+                        # Special Logic for Dean's List
+                        if target_group == "Dean's List Students":
+                            common_actions = ["Send E-Mail: Dean's List Acceptance"]
                         
                         action_type = st.selectbox("Action", common_actions, key="bulk_action_unified")
 
@@ -736,11 +733,16 @@ if model_artifact is not None and df is not None:
                             target_df = high_risk_students
                         elif target_group == "Medium Risk":
                             target_df = medium_risk_students
+                        elif target_group == "Dean's List Students":
+                            # Top 5% lowest risk
+                            # We use filtered_risk_df as source
+                             if len(filtered_risk_df) > 0:
+                                n_top_5_percent = max(1, int(len(filtered_risk_df) * 0.05))
+                                target_df = filtered_risk_df.nsmallest(n_top_5_percent, "Risk Score")
+                             else:
+                                target_df = pd.DataFrame()
                         else: # Likely Graduates
                             target_df = safe_students
-                            if filter_top_5:
-                                # Top 5 lowest risk
-                                target_df = target_df.nsmallest(5, "Risk Score")
                             
                         target_count = len(target_df)
                             
