@@ -998,16 +998,17 @@ if model_artifact is not None and df is not None:
                  )
                  
              # UI Components
+             st.markdown("#### Action/Tracking")
              t_c1, t_c2 = st.columns([1, 3])
              with t_c1:
                  is_tracked_input = st.checkbox(
-                     f"Mark as Tracked (ID: {selected_student_index})", 
+                     f"💾 Mark as Tracked (ID: {selected_student_index})", 
                      value=curr_tracked,
                      key=key_track,
                      on_change=on_track_change
                  )
                  if is_tracked_input:
-                     st.caption("✅ Saved")
+                     st.caption("💾 Saved")
              
              with t_c2:
                  notes_input = st.text_area(
@@ -1017,8 +1018,6 @@ if model_artifact is not None and df is not None:
                      key=key_notes,
                      on_change=on_track_change
                  )
-
-        st.markdown("---")
 
         st.markdown("---")
         # Ceteris Paribus moved below SHAP
