@@ -670,9 +670,16 @@ if model_artifact is not None and df is not None:
                 high_risk_students = filtered_risk_df[filtered_risk_df["Risk Score"] > st.session_state.high_risk_threshold]
                 high_risk_count = len(high_risk_students)
                 
-                # Likely Graduate (Safe)
+                # Low Risk (Safe)
                 safe_students = filtered_risk_df[filtered_risk_df["Risk Score"] <= st.session_state.low_risk_threshold]
                 safe_count = len(safe_students)
+
+                # Medium Risk
+                medium_risk_students = filtered_risk_df[
+                    (filtered_risk_df["Risk Score"] > st.session_state.low_risk_threshold) & 
+                    (filtered_risk_df["Risk Score"] <= st.session_state.high_risk_threshold)
+                ]
+                medium_risk_count = len(medium_risk_students)
                 
                 avg_risk = filtered_risk_df["Risk Score"].mean() if total_students > 0 else 0.0
                 
@@ -686,52 +693,65 @@ if model_artifact is not None and df is not None:
                 gs_col1, gs_col2 = st.columns([2, 1])
                 
                 with gs_col1:
-                    m1, m2, m3, m4 = st.columns(4)
-                    m1.metric("Total Students", total_students)
-                    m2.metric("High Risk Students", high_risk_count, delta_color="inverse")
-                    m3.metric("Students Likely to Graduate", safe_count, delta_color="normal") # Green is good
-                    m4.metric("Avg Risk", f"{avg_risk:.1%}")
+                    m1, m2, m3, m4, m5 = st.columns(5)
+                    m1.metric("Total", total_students)
+                    m2.metric("High Risk", high_risk_count, delta_color="inverse")
+                    m3.metric("Med Risk", medium_risk_count, delta_color="off")
+                    m4.metric("Safe", safe_count, delta_color="normal") # Green is good
+                    m5.metric("Avg Risk", f"{avg_risk:.1%}")
                 
                 with gs_col2:
                     # Bulk Intervention
                     with st.expander("📢 Bulk Actions"):
                         # Target Selection
-                        target_group = st.radio("Target Group", ["High Risk", "Likely Graduates"], horizontal=True, label_visibility="collapsed")
+                        target_group = st.radio(
+                            "Target Group", 
+                            ["High Risk", "Medium Risk", "Likely Graduates"], 
+                            horizontal=True, 
+                            label_visibility="collapsed"
+                        )
+                        
+                        # Unified Action List
+                        common_actions = [
+                            "Schedule Meeting: At-risk Student Intervention Meeting", 
+                            "Schedule Meeting: Post-graduation Options", 
+                            "Schedule Meeting: Advice of Attendance to Lectures & Tutorials", 
+                            "Notify Tutors About High Risk Students",
+                            "Other (Add Note manually)"
+                        ]
+                        
+                        action_type = st.selectbox("Action", common_actions, key="bulk_action_unified")
+
+                        # Determine target students based on selection
+                        target_indices = []
+                        target_count = 0
                         
                         if target_group == "High Risk":
-                            if high_risk_count > 0:
-                                st.write(f"**Target:** {high_risk_count} Risk Students")
-                                action_type = st.selectbox("Action", [
-                                    "Schedule Meeting: At-risk Student Intervention Meeting", 
-                                    "Schedule Meeting: Post-graduation Options", 
-                                    "Schedule Meeting: Advice of Attendance to Lectures & Tutorials", 
-                                    "Notify Tutors About High Risk Students"
-                                ], key="bulk_action_risk")
-                                
-                                if st.button(f"Execute Action"):
-                                     # SYNC: Update tracking for all these students
-                                     target_indices = high_risk_students.index.tolist()
-                                     bulk_update_tracking(target_indices, action_type)
-                                     
-                                     st.success(f"'{action_type}' queued for {high_risk_count} students.")
-                                     st.rerun()
-                            else:
-                                st.info("No high risk students found.")
-                                
+                            target_df = high_risk_students
+                        elif target_group == "Medium Risk":
+                            target_df = medium_risk_students
                         else: # Likely Graduates
-                            if safe_count > 0:
-                                st.write(f"**Target:** {safe_count} Safe Students")
-                                action_type = st.selectbox("Action", ["Send Kudos", "Invite to Honor Society", "Ask for Testimonial"], key="bulk_action_safe")
-                                
-                                if st.button(f"Execute Action"):
-                                     target_indices = safe_students.index.tolist()
-                                     bulk_update_tracking(target_indices, action_type)
-                                     
-                                     st.balloons() # Fun effect for kudos
-                                     st.success(f"'{action_type}' queued for {safe_count} students!")
-                                     st.rerun()
-                            else:
-                                st.info("No likely graduates found.")
+                            target_df = safe_students
+                            
+                        target_count = len(target_df)
+                        
+                        if target_count > 0:
+                            st.write(f"**Target:** {target_count} Students ({target_group})")
+                            
+                            if st.button(f"Execute Action"):
+                                    # SYNC: Update tracking for all these students
+                                    target_indices = target_df.index.tolist()
+                                    bulk_update_tracking(target_indices, action_type)
+                                    
+                                    if target_group == "Likely Graduates":
+                                        st.balloons()
+                                    else:
+                                        st.success(f"Action executed!")
+                                        
+                                    st.success(f"'{action_type}' queued for {target_count} students.")
+                                    st.rerun()
+                        else:
+                            st.info(f"No students found in {target_group}.")
                         
                 st.markdown("---")
 
