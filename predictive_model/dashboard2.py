@@ -1320,7 +1320,18 @@ if model_artifact is not None and df is not None:
 
         # --- Ceteris Paribus / What-If Analysis (Moved) ---
         with st.expander("Ceteris Paribus Analysis (What-If?)"):
-            st.markdown("Simulate changes to this student's profile to see how the risk changes.")
+            # Wrapper for Reset Logic
+            def reset_cp_state():
+                keys = ["cp_tuition", "cp_app_mode", "cp_course", "cp_grade1", "cp_grade2", "cp_app1", "cp_app2", "cp_age"]
+                for k in keys:
+                    if k in st.session_state:
+                        del st.session_state[k]
+
+            col_sim_header, col_sim_reset = st.columns([0.85, 0.15])
+            with col_sim_header:
+                st.markdown("Simulate changes to this student's profile to see how the risk changes.")
+            with col_sim_reset:
+                st.button("Reset", on_click=reset_cp_state, help="Reset all fields to original values")
             
             # Form for simulation
             with st.form("what_if_form"):
@@ -1328,7 +1339,7 @@ if model_artifact is not None and df is not None:
                 
                 with cp_col1:
                     # Binary / Categorical features
-                    cp_tuition = st.checkbox("Tuition fees up to date", value=(get_val("Tuition_fees_up_to_date") == 1))
+                    cp_tuition = st.checkbox("Tuition fees up to date", value=(get_val("Tuition_fees_up_to_date") == 1), key="cp_tuition")
                     
                     # Application Mode
                     cp_current_app_mode = get_val("Application_mode") if "Application_mode" in display_data.columns else get_val("Application mode")
@@ -1344,17 +1355,35 @@ if model_artifact is not None and df is not None:
                     except:
                         app_mode_index = 0
                         
-                    cp_app_mode_label = st.selectbox("Application Mode", options=app_mode_options, index=app_mode_index)
+                    cp_app_mode_label = st.selectbox("Application Mode", options=app_mode_options, index=app_mode_index, key="cp_app_mode")
+
+                    # Course
+                    cp_current_course = get_val("Course")
+                    if str(cp_current_course).replace('.','').isdigit():
+                         cp_current_course_label = course_map.get(int(cp_current_course), "Unknown")
+                    else:
+                         cp_current_course_label = cp_current_course
+
+                    course_options = list(course_map.values())
+                    try:
+                         course_index = course_options.index(cp_current_course_label)
+                    except:
+                         course_index = 0
+                    
+                    cp_course_label = st.selectbox("Course", options=course_options, index=course_index, key="cp_course")
 
                 with cp_col2:
                     # Numeric - Grades
-                    cp_grade1 = st.number_input("1st Sem Grade", min_value=0.0, max_value=20.0, value=float(get_val('Curricular_units_1st_sem_(grade)') if get_val('Curricular_units_1st_sem_(grade)') != "N/A" else 0.0))
-                    cp_grade2 = st.number_input("2nd Sem Grade", min_value=0.0, max_value=20.0, value=float(get_val('Curricular_units_2nd_sem_(grade)') if get_val('Curricular_units_2nd_sem_(grade)') != "N/A" else 0.0))
+                    cp_grade1 = st.number_input("1st Sem Grade", min_value=0.0, max_value=20.0, value=float(get_val('Curricular_units_1st_sem_(grade)') if get_val('Curricular_units_1st_sem_(grade)') != "N/A" else 0.0), key="cp_grade1")
+                    cp_grade2 = st.number_input("2nd Sem Grade", min_value=0.0, max_value=20.0, value=float(get_val('Curricular_units_2nd_sem_(grade)') if get_val('Curricular_units_2nd_sem_(grade)') != "N/A" else 0.0), key="cp_grade2")
+                    
+                    # Age
+                    cp_age = st.number_input("Age at enrollment", min_value=17, max_value=70, value=int(get_val('Age_at_enrollment') if get_val('Age_at_enrollment') != "N/A" else 20), key="cp_age")
 
                 with cp_col3:
                      # Numeric - Units Approved
-                    cp_app1 = st.number_input("1st Sem Approved", min_value=0, max_value=30, value=int(get_val('Curricular_units_1st_sem_(approved)') if get_val('Curricular_units_1st_sem_(approved)') != "N/A" else 0))
-                    cp_app2 = st.number_input("2nd Sem Approved", min_value=0, max_value=30, value=int(get_val('Curricular_units_2nd_sem_(approved)') if get_val('Curricular_units_2nd_sem_(approved)') != "N/A" else 0))
+                    cp_app1 = st.number_input("1st Sem Approved", min_value=0, max_value=30, value=int(get_val('Curricular_units_1st_sem_(approved)') if get_val('Curricular_units_1st_sem_(approved)') != "N/A" else 0), key="cp_app1")
+                    cp_app2 = st.number_input("2nd Sem Approved", min_value=0, max_value=30, value=int(get_val('Curricular_units_2nd_sem_(approved)') if get_val('Curricular_units_2nd_sem_(approved)') != "N/A" else 0), key="cp_app2")
                 
                 submitted = st.form_submit_button("Simulate New Risk")
                 
@@ -1368,6 +1397,12 @@ if model_artifact is not None and df is not None:
                     # Map back App Mode label to ID
                     app_mode_rev_map = {v: k for k, v in application_mode_map.items()}
                     modified_student["Application_mode"] = app_mode_rev_map.get(cp_app_mode_label, 1) # Default to 1 if fail
+                    
+                    # Map back Course label to ID
+                    course_rev_map = {v: k for k, v in course_map.items()}
+                    modified_student["Course"] = course_rev_map.get(cp_course_label, 1)
+
+                    modified_student["Age_at_enrollment"] = cp_age
                     
                     modified_student["Curricular_units_1st_sem_(grade)"] = cp_grade1
                     modified_student["Curricular_units_2nd_sem_(grade)"] = cp_grade2
