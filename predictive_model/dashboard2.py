@@ -79,8 +79,35 @@ if "low_risk_threshold" not in st.session_state:
     st.session_state.low_risk_threshold = 0.3
 
 # Sidebar button to open modal
+# Sidebar button to open modal
 if st.sidebar.button("💡 AI Threshold Recommendation"):
-    st.session_state.show_threshold_modal = True
+    st.session_state.show_threshold_modal = not st.session_state.show_threshold_modal
+
+if st.session_state.show_threshold_modal:
+    st.sidebar.markdown("---")
+    st.sidebar.info("""
+    **🤖 AI Mockup Analysis**
+    
+    The predictive engine suggests optimizing thresholds based on recent 5-fold validation results:
+    
+    *   **High Risk:** `0.70` -> `0.65`
+    *   **Safe:** `0.30` -> `0.35`
+    
+    *Reasoning: Adjusting sensitivity will capture 12% more at-risk students.*
+    """)
+    
+    c1, c2 = st.sidebar.columns(2)
+    with c1:
+        if st.button("Apply"):
+            st.session_state.high_risk_threshold = 0.65
+            st.session_state.low_risk_threshold = 0.35
+            st.session_state.show_threshold_modal = False
+            st.rerun()
+    with c2:
+        if st.button("Dismiss"):
+            st.session_state.show_threshold_modal = False
+            st.rerun()
+    st.sidebar.markdown("---")
 
 
 # Load Data & Model
