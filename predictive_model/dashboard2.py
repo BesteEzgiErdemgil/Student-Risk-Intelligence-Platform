@@ -718,6 +718,13 @@ if model_artifact is not None and df is not None:
                             "Schedule Meeting: Advice of Attendance to Lectures & Tutorials", 
                             "Notify Tutors About High Risk Students"
                         ]
+
+                        # Special Logic for Likely Graduates -> Dean's List
+                        filter_top_5 = False
+                        if target_group == "Likely Graduates":
+                            filter_top_5 = st.checkbox("Recommend Candidates for Dean's List (Top 5)")
+                            if filter_top_5:
+                                common_actions.append("Send E-Mail: Dean's List Acceptance")
                         
                         action_type = st.selectbox("Action", common_actions, key="bulk_action_unified")
 
@@ -731,6 +738,11 @@ if model_artifact is not None and df is not None:
                             target_df = medium_risk_students
                         else: # Likely Graduates
                             target_df = safe_students
+                            if filter_top_5:
+                                # Top 5 lowest risk
+                                target_df = target_df.nsmallest(5, "Risk Score")
+                            
+                        target_count = len(target_df)
                             
                         target_count = len(target_df)
                         
