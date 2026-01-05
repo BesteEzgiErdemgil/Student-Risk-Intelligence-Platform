@@ -755,59 +755,97 @@ if model_artifact is not None and df is not None:
         if str(d_course).replace('.','').isdigit():
              d_course = course_map.get(int(d_course), d_course)
 
-        # --- NEW CARD LAYOUT ---
-        # Row 1: Key Identifiers
-        r1c1, r1c2 = st.columns(2)
-        with r1c1:
-            st.markdown(f"<h4 style='color: #4A90E2;'>Course</h4>", unsafe_allow_html=True)
-            st.markdown(f"{d_course}")
-        with r1c2:
-            st.markdown(f"<h4 style='color: #4A90E2;'>Application Mode</h4>", unsafe_allow_html=True)
-            st.markdown(f"{d_app_mode}")
-            
-        # Row 2: Demographics & Fees
-        r2c1, r2c2 = st.columns(2)
-        with r2c1:
-            st.markdown(f"<h4 style='color: #4A90E2;'>Age at Enrollment</h4>", unsafe_allow_html=True)
-            age_val = int(get_val("Age_at_enrollment")) if get_val("Age_at_enrollment") != "N/A" else "N/A"
-            st.markdown(f"{age_val}")
-        with r2c2:
-            st.markdown(f"<h4 style='color: #4A90E2;'>Tuition Fees</h4>", unsafe_allow_html=True)
-            t_status = "Up to Date" if get_val("Tuition_fees_up_to_date") == 1 else "Overdue"
-            st.markdown(f"{t_status}")
+        # --- NEW CARD LAYOUT (Table Design) ---
+        
+        # Prepare values
+        v_age = int(get_val("Age_at_enrollment")) if get_val("Age_at_enrollment") != "N/A" else "N/A"
+        v_t_status = "Up to Date" if get_val("Tuition_fees_up_to_date") == 1 else "Overdue"
+        
+        def fmt_grade(val_raw):
+             return f"{val_raw:.2f}" if val_raw != "N/A" else "N/A"
+        
+        def fmt_int(val_raw):
+             return int(val_raw) if val_raw != "N/A" else "N/A"
 
-        # Row 3: Academic Performance (1st Sem)
-        st.markdown(f"<h5 style='color: #E91E63;'>1st Semester Performance</h5>", unsafe_allow_html=True)
-        m1, m2, m3 = st.columns(3)
-        with m1:
-            st.markdown(f"<h4 style='color: #4A90E2;'>Grade Avg</h4>", unsafe_allow_html=True)
-            val = f"{get_val('Curricular_units_1st_sem_(grade)'):.2f}" if get_val('Curricular_units_1st_sem_(grade)') != "N/A" else "N/A"
-            st.markdown(val)
-        with m2:
-            st.markdown(f"<h4 style='color: #4A90E2;'>Enrolled</h4>", unsafe_allow_html=True)
-            val = int(get_val('Curricular_units_1st_sem_(enrolled)')) if get_val('Curricular_units_1st_sem_(enrolled)') != "N/A" else "N/A"
-            st.markdown(val)
-        with m3:
-            st.markdown(f"<h4 style='color: #4A90E2;'>Approved</h4>", unsafe_allow_html=True)
-            val = int(get_val('Curricular_units_1st_sem_(approved)')) if get_val('Curricular_units_1st_sem_(approved)') != "N/A" else "N/A"
-            st.markdown(val)
+        v_g1 = fmt_grade(get_val('Curricular_units_1st_sem_(grade)'))
+        v_e1 = fmt_int(get_val('Curricular_units_1st_sem_(enrolled)'))
+        v_a1 = fmt_int(get_val('Curricular_units_1st_sem_(approved)'))
+        
+        v_g2 = fmt_grade(get_val('Curricular_units_2nd_sem_(grade)'))
+        v_e2 = fmt_int(get_val('Curricular_units_2nd_sem_(enrolled)'))
+        v_a2 = fmt_int(get_val('Curricular_units_2nd_sem_(approved)'))
 
-        # Row 4: Academic Performance (2nd Sem)
-        st.markdown(f"<h5 style='color: #E91E63;'>2nd Semester Performance</h5>", unsafe_allow_html=True)
-        n1, n2, n3 = st.columns(3)
+        # HTML Structure with Borders
+        # We use a white background to ensure text visibility
+        # Lighter/Thinner border: 2px solid #ccc
+        # Removed explicit fonts to inherit default Streamlit styles
+        html_card = f"""
+        <div style="border: 2px solid #ccc; border-radius: 0px; margin-bottom: 20px; background-color: white;">
+          <!-- Row 1: Course | App Mode -->
+          <div style="display: flex; border-bottom: 2px solid #ccc;">
+            <div style="flex: 1; padding: 12px; border-right: 2px solid #ccc;">
+               <h4 style="color: #4A90E2; margin: 0;">Course</h4>
+               <p style="margin: 5px 0 0 0; color: #333;">{d_course}</p>
+            </div>
+            <div style="flex: 1; padding: 12px;">
+               <h4 style="color: #4A90E2; margin: 0;">Application Mode</h4>
+               <p style="margin: 5px 0 0 0; color: #333;">{d_app_mode}</p>
+            </div>
+          </div>
 
-        with n1:
-             st.markdown(f"<h4 style='color: #4A90E2;'>Grade Avg</h4>", unsafe_allow_html=True)
-             val = f"{get_val('Curricular_units_2nd_sem_(grade)'):.2f}" if get_val('Curricular_units_2nd_sem_(grade)') != "N/A" else "N/A"
-             st.markdown(val)
-        with n2:
-             st.markdown(f"<h4 style='color: #4A90E2;'>Enrolled</h4>", unsafe_allow_html=True)
-             val = int(get_val('Curricular_units_2nd_sem_(enrolled)')) if get_val('Curricular_units_2nd_sem_(enrolled)') != "N/A" else "N/A"
-             st.markdown(val)
-        with n3:
-             st.markdown(f"<h4 style='color: #4A90E2;'>Approved</h4>", unsafe_allow_html=True)
-             val = int(get_val('Curricular_units_2nd_sem_(approved)')) if get_val('Curricular_units_2nd_sem_(approved)') != "N/A" else "N/A"
-             st.markdown(val)
+          <!-- Row 2: Age | Tuition -->
+          <div style="display: flex; border-bottom: 2px solid #ccc;">
+            <div style="flex: 1; padding: 12px; border-right: 2px solid #ccc;">
+               <h4 style="color: #4A90E2; margin: 0;">Age at Enrollment</h4>
+               <p style="margin: 5px 0 0 0; color: #333;">{v_age}</p>
+            </div>
+            <div style="flex: 1; padding: 12px;">
+               <h4 style="color: #4A90E2; margin: 0;">Tuition Fees</h4>
+               <p style="margin: 5px 0 0 0; color: #333;">{v_t_status}</p>
+            </div>
+          </div>
+
+          <!-- Row 3: 1st Sem -->
+          <div style="padding: 12px; border-bottom: 2px solid #ccc;">
+             <h4 style="color: #E91E63; margin-bottom: 12px; margin-top: 0;">1st Semester Performance</h4>
+             <div style="display: flex; justify-content: space-between;">
+                <div style="flex: 1;">
+                    <h4 style="color: #4A90E2; margin: 0;">Grade Avg</h4>
+                    <p style="margin: 5px 0 0 0; color: #333;">{v_g1}</p>
+                </div>
+                <div style="flex: 1;">
+                    <h4 style="color: #4A90E2; margin: 0;">Enrolled</h4>
+                    <p style="margin: 5px 0 0 0; color: #333;">{v_e1}</p>
+                </div>
+                <div style="flex: 1;">
+                     <h4 style="color: #4A90E2; margin: 0;">Approved</h4>
+                     <p style="margin: 5px 0 0 0; color: #333;">{v_a1}</p>
+                </div>
+             </div>
+          </div>
+
+          <!-- Row 4: 2nd Sem -->
+          <div style="padding: 12px;">
+             <h4 style="color: #E91E63; margin-bottom: 12px; margin-top: 0;">2nd Semester Performance</h4>
+             <div style="display: flex; justify-content: space-between;">
+                <div style="flex: 1;">
+                    <h4 style="color: #4A90E2; margin: 0;">Grade Avg</h4>
+                    <p style="margin: 5px 0 0 0; color: #333;">{v_g2}</p>
+                </div>
+                <div style="flex: 1;">
+                    <h4 style="color: #4A90E2; margin: 0;">Enrolled</h4>
+                    <p style="margin: 5px 0 0 0; color: #333;">{v_e2}</p>
+                </div>
+                <div style="flex: 1;">
+                     <h4 style="color: #4A90E2; margin: 0;">Approved</h4>
+                     <p style="margin: 5px 0 0 0; color: #333;">{v_a2}</p>
+                </div>
+             </div>
+          </div>
+        </div>
+        """
+        
+        st.markdown(html_card, unsafe_allow_html=True)
         
         st.markdown("---")
 
