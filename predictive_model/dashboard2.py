@@ -506,17 +506,13 @@ if model_artifact is not None and df is not None:
 
     # --- Sidebar Filters ---
     
-    # Data Source Selection (Logic Split)
-    # If "Simulate", we skip the list selection logic.
-    # If "Existing", we use the list list selection.
-    
-    # Data Source Selection
-    data_source = st.sidebar.radio("Data Source", ["Select Existing Student", "Simulate New Student"])
+    # Data Source Selection - Force Existing Student
+    data_source = "Select Existing Student"
     
     selected_student_data = None
     selected_student_index = None
 
-    if data_source == "Select Existing Student":
+    if True: # Existing Student Mode
         
         # --- 1. Global Risk Calculation & List ---
         with st.spinner("Analyzing all students..."):
