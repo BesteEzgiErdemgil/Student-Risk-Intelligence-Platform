@@ -701,7 +701,7 @@ if model_artifact is not None and df is not None:
                 st.sidebar.markdown("---")
 
                 # --- NEW: Group Summary ---
-                st.subheader("📊 Group Summary")
+                st.subheader("📊 Group Overview")
                 
                 # Metrics
                 total_students = len(filtered_risk_df)
