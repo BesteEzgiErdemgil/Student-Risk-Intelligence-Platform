@@ -737,7 +737,7 @@ if model_artifact is not None and df is not None:
                     m1.metric("Total", total_students)
                     m2.metric("High Risk Student Count", high_risk_count, delta_color="inverse")
                     m3.metric("Med. Risk Student Count", medium_risk_count, delta_color="off")
-                    m4.metric("Safe Student Count", safe_count, delta_color="normal") # Green is good
+                    m4.metric("Low Risk Student Count", safe_count, delta_color="normal") # Green is good
                     m5.metric("Avg Risk", f"{avg_risk:.1%}")
                 
                 with gs_col2:
