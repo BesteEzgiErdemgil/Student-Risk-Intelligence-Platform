@@ -11,7 +11,7 @@ import subprocess
 # Add current directory to path to import local modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from explainability import calculate_shap_values, generate_genai_explanation
+from explainability import calculate_shap_values, generate_genai_explanation, generate_simulation_explanation
 
 # --- Mappings ---
 application_mode_map = {
@@ -1453,6 +1453,40 @@ if model_artifact is not None and df is not None:
                                 st.error("Outcome: **HIGH RISK**")
                             else:
                                 st.warning("Outcome: **MEDIUM RISK**")
+                        
+                        # --- GENAI EXPLANATION ---
+                        st.markdown("---")
+                        
+                        # Detect Changes
+                        changes_made = {}
+                        
+                        # Check Tuition
+                        old_tuition = get_val("Tuition_fees_up_to_date")
+                        new_tuition = 1 if cp_tuition else 0
+                        if old_tuition != "N/A" and int(old_tuition) != new_tuition:
+                            changes_made["Tuition"] = (old_tuition, new_tuition)
+                            
+                        # Check Grades
+                        old_g1 = get_val("Curricular_units_1st_sem_(grade)")
+                        if old_g1 != "N/A" and abs(float(old_g1) - cp_grade1) > 0.1:
+                            changes_made["1st Sem Grade"] = (old_g1, cp_grade1)
+                            
+                        old_g2 = get_val("Curricular_units_2nd_sem_(grade)")
+                        if old_g2 != "N/A" and abs(float(old_g2) - cp_grade2) > 0.1:
+                            changes_made["2nd Sem Grade"] = (old_g2, cp_grade2)
+                            
+                        # Check Course/App Mode
+                        if modified_student["Course"].iloc[0] != selected_student_data["Course"].iloc[0]:
+                            changes_made["Course"] = (selected_student_data["Course"].iloc[0], modified_student["Course"].iloc[0])
+                            
+                        # Check Age
+                        old_age = get_val("Age_at_enrollment")
+                        if old_age != "N/A" and int(old_age) != cp_age:
+                            changes_made["Age"] = (old_age, cp_age)
+
+                        # Generate Explanation
+                        sim_explanation = generate_simulation_explanation(dropout_prob, new_risk, changes_made)
+                        st.info(sim_explanation)
                                 
                     except Exception as e:
                         st.error(f"Simulation failed: {e}")

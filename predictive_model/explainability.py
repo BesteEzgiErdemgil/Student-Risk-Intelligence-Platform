@@ -127,3 +127,64 @@ def generate_genai_explanation(student_id, risk_prob, top_features):
                        "but positive reinforcement is always helpful."
                        
     return explanation
+
+def generate_simulation_explanation(old_risk, new_risk, changes):
+    """
+    Generates a context-aware explanation for a simulated risk change.
+    
+    Args:
+        old_risk: Original dropout probability (float).
+        new_risk: Simulated dropout probability (float).
+        changes: Dictionary of changed features {FeatureName: (OldVal, NewVal)}.
+        
+    Returns:
+        str: Markdown explanation.
+    """
+    delta = new_risk - old_risk
+    improvement = -delta
+    
+    explanation = f"### AI Simulation Analysis\n\n"
+    
+    if abs(delta) < 0.01:
+        explanation += "The simulated changes had **minimal impact** on the risk score. This suggests that the factors modified are not the primary drivers of dropout risk for this student, or the change magnitude was insufficient."
+        return explanation
+
+    # Significant change
+    direction = "reduced" if improvement > 0 else "increased"
+    explanation += f"**Result:** Risk {direction} by **{abs(improvement):.1%}**.\n\n"
+    
+    explanation += "**Why did the risk change?**\n"
+    
+    # Analyze specific drivers based on 'changes' dict keys
+    # We look for keywords in the changed feature names
+    
+    change_keys_str = " ".join(changes.keys()).lower()
+    
+    if "grade" in change_keys_str or "approved" in change_keys_str:
+        explanation += "The improvement is largely driven by better **academic performance**. The model weighs recent semester grades heavily as they are strong indicators of engagement and capability.\n\n"
+        explanation += "**Intervention Reality Check:**\n"
+        explanation += "Achieving this grade improvement typically requires:\n"
+        explanation += "*   **Remedial Coursework:** Enrolling in support classes.\n"
+        explanation += "*   **Tutor Follow-up:** Regular weekly sessions.\n"
+        explanation += "*   **Attendance Enforcement:** Strict monitoring of lecture presence.\n"
+        
+    elif "tuition" in change_keys_str:
+        explanation += "Bringing **tuition fees up to date** removes a significant barrier. Financial instability is a key dropout predictor.\n\n"
+        explanation += "**Intervention Reality Check:**\n"
+        explanation += "This change implies resolving financial holds. However, **tuition payment alone** often does not solve underlying academic issues. Ensure the student also has academic support.\n"
+        
+    elif "course" in change_keys_str or "application" in change_keys_str:
+        explanation += "Changing the **Course** or **Application Mode** fundamentally shifts the risk profile. Different programs have varying retention rates.\n\n"
+        explanation += "**Is this realistic?**\n"
+        explanation += "This is a **structural change**, not an intervention. Use this to compare risk across different potential paths for a student (e.g., if they are considering a transfer).\n"
+        
+    elif "age" in change_keys_str:
+         explanation += "The simulation adjusted the **Age at enrollment**.\n\n"
+         explanation += "**Note:** Age is immutable. This simulation shows how age demographics correlate with risk, but you cannot 'intervene' to change a student's age.\n"
+         
+    else:
+        explanation += "The model reacted to the combination of adjusted parameters.\n"
+
+    explanation += "\n> _These insights help actionable planning rather than just hypothetical matching._"
+    
+    return explanation
