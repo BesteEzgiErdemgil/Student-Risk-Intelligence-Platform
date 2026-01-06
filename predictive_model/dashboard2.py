@@ -347,21 +347,39 @@ def clean_feature_name(name):
     name = name.replace("cat__", "").replace("num__", "")
     
     # Check for One-Hot suffix (usually _<number>)
-    # But be careful with names that naturally end in numbers like "sem_1"
-    # Usually one-hot encoding appends an underscore and the value.
     parts = name.rsplit('_', 1)
     if len(parts) == 2 and parts[1].isdigit():
         base = parts[0].replace("_", " ")
         val = parts[1]
         
-        # Optional: Try to map specific columns if known
+        # Mapping
         if "Course" in base:
             val = course_map.get(int(val), val)
         elif "Application mode" in base:
              val = application_mode_map.get(int(val), val)
-             
         return f"{base}: {val}"
+
+    # --- SPECIFIC MAPPINGS (Curricular Units) ---
+    # Normalize for matching: lower case, remove underscores/spaces
+    norm_name = name.lower().replace("_", "").replace(" ", "")
+    
+    # 1st Semester
+    if "curricularunits1stsem(enrolled)" in norm_name:
+        return "1st Semester Lectures Enrolled"
+    if "curricularunits1stsem(approved)" in norm_name:
+        return "1st Semester Lectures Passed"
+    if "curricularunits1stsem(grade)" in norm_name:
+        return "1st Semester Average Grade"
         
+    # 2nd Semester
+    if "curricularunits2ndsem(enrolled)" in norm_name:
+        return "2nd Semester Lectures Enrolled"
+    if "curricularunits2ndsem(approved)" in norm_name:
+        return "2nd Semester Lectures Passed"
+    if "curricularunits2ndsem(grade)" in norm_name:
+        return "2nd Semester Average Grade"
+
+    # Generic Cleanup: Replace underscores with spaces
     return name.replace("_", " ")
 
 model_artifact, df = load_resources()
@@ -580,6 +598,7 @@ if model_artifact is not None and df is not None:
                         # Let's clean state: default empty? Or default basic ones?
                         # User said "course ve mode attributu de içinde olsun... aralarında bi fark yok"
                         default=[],
+                        format_func=lambda x: clean_feature_name(x),
                         key="dynamic_filter_multiselect"
                     )
                     
@@ -631,7 +650,7 @@ if model_artifact is not None and df is not None:
                                 unique_vals_str = [str(x) for x in unique_vals]
                                 
                                 sel_vals = st.multiselect(
-                                    f"{attr}",
+                                    f"{clean_feature_name(attr)}",
                                     options=unique_vals_str,
                                     default=unique_vals_str,
                                     key=f"dyn_multi_{attr}"
@@ -655,7 +674,7 @@ if model_artifact is not None and df is not None:
                                         st.caption(f"{attr}: Constant {min_val}")
                                     else:
                                         rng = st.slider(
-                                            f"{attr}", 
+                                            f"{clean_feature_name(attr)}", 
                                             min_value=min_val, 
                                             max_value=max_val, 
                                             value=(min_val, max_val),
@@ -873,8 +892,12 @@ if model_artifact is not None and df is not None:
                     return styles
 
                 # Display with Styler
+                # Create a view with friendly names
+                display_df = merged_df[display_cols].copy()
+                display_df.columns = [clean_feature_name(c) for c in display_df.columns]
+                
                 st.dataframe(
-                    merged_df[display_cols].style
+                    display_df.style
                     .format({"Risk Score": "{:.1%}"})
                     .apply(color_rows, axis=1),
                     height=300,
@@ -1091,15 +1114,15 @@ if model_artifact is not None and df is not None:
              <h4 style="color: #E91E63; margin-bottom: 12px; margin-top: 0;">1st Semester Performance</h4>
              <div style="display: flex; justify-content: space-between;">
                 <div style="flex: 1;">
-                    <h4 style="color: #4A90E2; margin: 0;">Grade Avg</h4>
+                    <h4 style="color: #4A90E2; margin: 0;">Average Grade</h4>
                     <p style="margin: 5px 0 0 0; color: inherit;">{v_g1}</p>
                 </div>
                 <div style="flex: 1;">
-                    <h4 style="color: #4A90E2; margin: 0;">Enrolled</h4>
+                    <h4 style="color: #4A90E2; margin: 0;">Lectures Enrolled</h4>
                     <p style="margin: 5px 0 0 0; color: inherit;">{v_e1}</p>
                 </div>
                 <div style="flex: 1;">
-                     <h4 style="color: #4A90E2; margin: 0;">Approved</h4>
+                     <h4 style="color: #4A90E2; margin: 0;">Lectures Passed</h4>
                      <p style="margin: 5px 0 0 0; color: inherit;">{v_a1}</p>
                 </div>
              </div>
@@ -1110,15 +1133,15 @@ if model_artifact is not None and df is not None:
              <h4 style="color: #E91E63; margin-bottom: 12px; margin-top: 0;">2nd Semester Performance</h4>
              <div style="display: flex; justify-content: space-between;">
                 <div style="flex: 1;">
-                    <h4 style="color: #4A90E2; margin: 0;">Grade Avg</h4>
+                    <h4 style="color: #4A90E2; margin: 0;">Average Grade</h4>
                     <p style="margin: 5px 0 0 0; color: inherit;">{v_g2}</p>
                 </div>
                 <div style="flex: 1;">
-                    <h4 style="color: #4A90E2; margin: 0;">Enrolled</h4>
+                    <h4 style="color: #4A90E2; margin: 0;">Lectures Enrolled</h4>
                     <p style="margin: 5px 0 0 0; color: inherit;">{v_e2}</p>
                 </div>
                 <div style="flex: 1;">
-                     <h4 style="color: #4A90E2; margin: 0;">Approved</h4>
+                     <h4 style="color: #4A90E2; margin: 0;">Lectures Passed</h4>
                      <p style="margin: 5px 0 0 0; color: inherit;">{v_a2}</p>
                 </div>
              </div>
@@ -1424,16 +1447,16 @@ if model_artifact is not None and df is not None:
 
                 with cp_col2:
                     # Numeric - Grades
-                    cp_grade1 = st.number_input("1st Sem Grade", min_value=0.0, max_value=20.0, value=float(get_val('Curricular_units_1st_sem_(grade)') if get_val('Curricular_units_1st_sem_(grade)') != "N/A" else 0.0), key="cp_grade1")
-                    cp_grade2 = st.number_input("2nd Sem Grade", min_value=0.0, max_value=20.0, value=float(get_val('Curricular_units_2nd_sem_(grade)') if get_val('Curricular_units_2nd_sem_(grade)') != "N/A" else 0.0), key="cp_grade2")
+                    cp_grade1 = st.number_input("1st Semester Average Grade", min_value=0.0, max_value=20.0, value=float(get_val('Curricular_units_1st_sem_(grade)') if get_val('Curricular_units_1st_sem_(grade)') != "N/A" else 0.0), key="cp_grade1")
+                    cp_grade2 = st.number_input("2nd Semester Average Grade", min_value=0.0, max_value=20.0, value=float(get_val('Curricular_units_2nd_sem_(grade)') if get_val('Curricular_units_2nd_sem_(grade)') != "N/A" else 0.0), key="cp_grade2")
                     
                     # Age
                     cp_age = st.number_input("Age at enrollment", min_value=17, max_value=70, value=int(get_val('Age_at_enrollment') if get_val('Age_at_enrollment') != "N/A" else 20), key="cp_age")
 
                 with cp_col3:
                      # Numeric - Units Approved
-                    cp_app1 = st.number_input("1st Sem Approved", min_value=0, max_value=30, value=int(get_val('Curricular_units_1st_sem_(approved)') if get_val('Curricular_units_1st_sem_(approved)') != "N/A" else 0), key="cp_app1")
-                    cp_app2 = st.number_input("2nd Sem Approved", min_value=0, max_value=30, value=int(get_val('Curricular_units_2nd_sem_(approved)') if get_val('Curricular_units_2nd_sem_(approved)') != "N/A" else 0), key="cp_app2")
+                    cp_app1 = st.number_input("1st Semester Lectures Passed", min_value=0, max_value=30, value=int(get_val('Curricular_units_1st_sem_(approved)') if get_val('Curricular_units_1st_sem_(approved)') != "N/A" else 0), key="cp_app1")
+                    cp_app2 = st.number_input("2nd Semester Lectures Passed", min_value=0, max_value=30, value=int(get_val('Curricular_units_2nd_sem_(approved)') if get_val('Curricular_units_2nd_sem_(approved)') != "N/A" else 0), key="cp_app2")
                 
                 submitted = st.form_submit_button("Simulate New Risk")
                 
