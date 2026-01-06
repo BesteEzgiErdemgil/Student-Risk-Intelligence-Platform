@@ -93,7 +93,7 @@ def render_guide():
     *   **Tracking/Action**: Mark a student as "Tracked" and leave notes (e.g., "Meeting scheduled").
 
     #### 4. Explainability (Why this prediction?)
-    *   **SHAP Analysis**: 
+    *   **Risk Score Explanation**: 
         *   **Red Bars (Factors Increasing Dropout Risk)**: Characteristics that *increase* the likelihood of dropout.
         *   **Green Bars (Factors Reducing Dropout Risk)**: Characteristics that *reduce* risk.
     *   **GenAI Insight**: A text summary explaining the student's situation in plain language.
@@ -735,9 +735,9 @@ if model_artifact is not None and df is not None:
                 with gs_col1:
                     m1, m2, m3, m4, m5 = st.columns(5)
                     m1.metric("Total", total_students)
-                    m2.metric("High Risk Student Count", high_risk_count, delta_color="inverse")
-                    m3.metric("Med. Risk Student Count", medium_risk_count, delta_color="off")
-                    m4.metric("Low Risk Student Count", safe_count, delta_color="normal") # Green is good
+                    m2.metric("High Risk", high_risk_count, delta_color="inverse")
+                    m3.metric("Med Risk", medium_risk_count, delta_color="off")
+                    m4.metric("Safe", safe_count, delta_color="normal") # Green is good
                     m5.metric("Avg Risk", f"{avg_risk:.1%}")
                 
                 with gs_col2:
