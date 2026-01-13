@@ -1,4 +1,5 @@
 import shap
+from llm_helper import get_chat_response
 import pandas as pd
 import numpy as np
 
@@ -86,7 +87,7 @@ def calculate_shap_values(model_artifact, X_train, X_test):
 
 def generate_genai_explanation(student_id, risk_prob, top_features):
     """
-    Generates a natural language explanation for a student's risk.
+    Generates a natural language explanation for a student's risk using LLM.
     
     Args:
         student_id: ID of the student.
@@ -96,40 +97,36 @@ def generate_genai_explanation(student_id, risk_prob, top_features):
     Returns:
         str: A natural language summary.
     """
-    # MOCK GENAI RESPONSE
-    # In a real scenario, this would call OpenAI/Gemini API
     
+    # Real GenAI Implementation
     risk_level = "High" if risk_prob > 0.6 else "Medium" if risk_prob > 0.3 else "Low"
     
-    explanation = f"""**Student Analysis (ID: {student_id})**
-    
-**Risk Level:** {risk_level} ({risk_prob:.1%})
-
-**Key Drivers:**
-"""
-    
-    for feature, impact in top_features[:3]:
-        direction = "increases risk" if impact > 0 else "decreases risk"
-        explanation += f"- **{feature}**: This factor {direction} (Impact: {impact:.2f}).\n"
+    # Construct a summary string of the top factors
+    factors_desc = ""
+    for feature, impact in top_features[:5]: # increased context
+        direction = "increasing risk" if impact > 0 else "decreasing risk"
+        factors_desc += f"- {feature} ({direction}, impact: {impact:.3f})\n"
         
-    explanation += "\n**GenAI Summary:**\n"
-    explanation += f"Based on the predictive model, this student shows a {risk_level.lower()} likelihood of dropping out. "
+    prompt_messages = [
+        {"role": "system", "content": "You are an expert data analyst for student success. Summarize the student's risk profile for a counselor. Be concise and actionable. Limit to 3-4 sentences."},
+        {"role": "user", "content": f"Student ID: {student_id}. Risk Level: {risk_level} ({risk_prob:.1%}).\nKey Factors:\n{factors_desc}\n\nPlease explain why this student is at risk and suggest 1 key next step."}
+    ]
     
-    if risk_level == "High":
-        explanation += "The primary concerns are related to their academic performance and financial factors. " \
-                       "Immediate intervention is recommended to discuss support options."
-    elif risk_level == "Medium":
-        explanation += "While not critical, there are some warning signs. A check-in email would be beneficial " \
-                       "to ensure they are on the right track."
-    else:
-        explanation += "The student appears to be progressing well. No immediate action is required, " \
-                       "but positive reinforcement is always helpful."
-                       
-    return explanation
+    # Call OpenAI
+    response = get_chat_response(prompt_messages)
+    
+    # Fallback if API fails
+    if "API Key" in response or "Error" in response:
+         fallback_expl = f"**AI Analysis Unavailable:** {response}\n\n*Using Offline Fallback:*\n"
+         fallback_expl += f"**Risk Level:** {risk_level} ({risk_prob:.1%})\n"
+         fallback_expl += "**Key Factors:**\n" + factors_desc
+         return fallback_expl
+         
+    return response
 
 def generate_simulation_explanation(old_risk, new_risk, changes):
     """
-    Generates a context-aware explanation for a simulated risk change.
+    Generates a context-aware explanation for a simulated risk change using LLM.
     
     Args:
         old_risk: Original dropout probability (float).
@@ -142,48 +139,43 @@ def generate_simulation_explanation(old_risk, new_risk, changes):
     delta = new_risk - old_risk
     improvement = -delta
     
-    explanation = f"### AI Simulation Analysis\n\n"
-    
+    # Minimal change - no need for LLM
     if abs(delta) < 0.01:
-        explanation += "The simulated changes had **minimal impact** on the risk score. This suggests that the factors modified are not the primary drivers of dropout risk for this student, or the change magnitude was insufficient."
-        return explanation
+        return "### AI Simulation Analysis\n\nThe simulated changes had **minimal impact** on the risk score. This suggests that the factors modified are not the primary drivers of dropout risk for this student, or the change magnitude was insufficient."
 
-    # Significant change
+    # Build changes description
+    changes_desc = ""
+    for var, (old_val, new_val) in changes.items():
+        changes_desc += f"- {var}: {old_val} → {new_val}\n"
+    
     direction = "reduced" if improvement > 0 else "increased"
-    explanation += f"**Result:** Risk {direction} by **{abs(improvement):.1%}**.\n\n"
     
-    explanation += "**Why did the risk change?**\n"
-    
-    # Analyze specific drivers based on 'changes' dict keys
-    # We look for keywords in the changed feature names
-    
-    change_keys_str = " ".join(changes.keys()).lower()
-    
-    if "grade" in change_keys_str or "approved" in change_keys_str:
-        explanation += "The improvement is largely driven by better **academic performance**. The model weighs recent semester grades heavily as they are strong indicators of engagement and capability.\n\n"
-        explanation += "**Intervention Reality Check:**\n"
-        explanation += "Achieving this grade improvement typically requires:\n"
-        explanation += "*   **Remedial Coursework:** Enrolling in support classes.\n"
-        explanation += "*   **Tutor Follow-up:** Regular weekly sessions.\n"
-        explanation += "*   **Attendance Enforcement:** Strict monitoring of lecture presence.\n"
-        
-    elif "tuition" in change_keys_str:
-        explanation += "Bringing **tuition fees up to date** removes a significant barrier. Financial instability is a key dropout predictor.\n\n"
-        explanation += "**Intervention Reality Check:**\n"
-        explanation += "This change implies resolving financial holds. However, **tuition payment alone** often does not solve underlying academic issues. Ensure the student also has academic support.\n"
-        
-    elif "course" in change_keys_str or "application" in change_keys_str:
-        explanation += "Changing the **Course** or **Application Mode** fundamentally shifts the risk profile. Different programs have varying retention rates.\n\n"
-        explanation += "**Is this realistic?**\n"
-        explanation += "This is a **structural change**, not an intervention. Use this to compare risk across different potential paths for a student (e.g., if they are considering a transfer).\n"
-        
-    elif "age" in change_keys_str:
-         explanation += "The simulation adjusted the **Age at enrollment**.\n\n"
-         explanation += "**Note:** Age is immutable. This simulation shows how age demographics correlate with risk, but you cannot 'intervene' to change a student's age.\n"
-         
-    else:
-        explanation += "The model reacted to the combination of adjusted parameters.\n"
+    prompt_messages = [
+        {"role": "system", "content": """You are an expert academic data analyst explaining simulation results.
 
-    explanation += "\n> _These insights help actionable planning rather than just hypothetical matching._"
+CRITICAL RULES:
+1. ONLY discuss the specific variables that were changed (listed below).
+2. Do NOT mention variables that were NOT changed.
+3. Explain WHY the specific changed variable(s) correlates with dropout risk.
+4. Do NOT suggest interventions or action steps.
+5. Keep response under 80 words. Use markdown bullet points."""},
+        {"role": "user", "content": f"""A student's dropout risk changed from {old_risk:.1%} to {new_risk:.1%} ({direction} by {abs(improvement):.1%}).
+
+THE ONLY VARIABLE(S) CHANGED:
+{changes_desc}
+
+Explain ONLY why these specific changes affected the risk score. Focus on correlation, not intervention."""}
+    ]
     
-    return explanation
+    response = get_chat_response(prompt_messages)
+    
+    # Fallback if API fails
+    if "API Key" in response or "Error" in response:
+        # Use basic rule-based fallback
+        explanation = f"### AI Simulation Analysis\n\n**Result:** Risk {direction} by **{abs(improvement):.1%}**.\n\n"
+        explanation += f"**Variables Changed:**\n{changes_desc}\n"
+        explanation += "_AI explanation unavailable. Please check API configuration._"
+        return explanation
+    
+    return f"### AI Simulation Analysis\n\n**Result:** Risk {direction} by **{abs(improvement):.1%}**.\n\n{response}"
+

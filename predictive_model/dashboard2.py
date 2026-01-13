@@ -12,6 +12,7 @@ import subprocess
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from explainability import calculate_shap_values, generate_genai_explanation, generate_simulation_explanation
+from llm_helper import get_chat_response
 
 # --- Mappings ---
 application_mode_map = {
@@ -145,6 +146,68 @@ else:
 # Initialize guide dialog state
 if "show_guide_dialog" not in st.session_state:
     st.session_state.show_guide_dialog = False
+if "show_help_assistant" not in st.session_state:
+    st.session_state.show_help_assistant = False
+if "help_chat_history" not in st.session_state:
+    st.session_state.help_chat_history = []
+
+# --- HELP ASSISTANT DOCUMENTATION ---
+DASHBOARD_HELP_CONTEXT = """
+The Student Success Dashboard is a predictive analytics tool for university counselors.
+
+KEY TERMS:
+- Risk Score: Probability (0-100%) of student dropout. Higher = more risk.
+- High Risk: Above high threshold (default 70%). Immediate intervention needed.
+- Medium Risk: Between thresholds. Monitor closely.
+- Low Risk: Below low threshold (default 30%). Student is on track.
+- SHAP Values: Shows how much each factor contributed to the risk. Red = increases risk, Green = protective.
+- What-If: Simulation to see how changing a variable affects risk.
+
+FEATURES:
+- Sidebar: Adjust thresholds, filter students by Course/Mode/Tuition.
+- Group Overview: Stats for filtered group (counts, average risk).
+- Student List: Click a row to see details. Blue = tracked.
+- Student Profile: Demographics, grades, tuition status.
+- Risk Explanation: Bar charts showing risk/protective factors.
+- GenAI Insight: AI-generated summary and suggestions.
+- Tracking: Mark students and add notes.
+- Simulation: Change values, see new risk.
+
+LIMITATIONS:
+- Predictions are probabilistic, not certainties.
+- Correlation ≠ causation.
+- Combine with professional judgment.
+
+ETHICAL USE:
+- Support students, don't stigmatize.
+- Interventions should be equitable.
+"""
+
+@st.dialog("🤖 Dashboard Help Assistant", width="large")
+def render_help_assistant():
+    """Renders an interactive AI assistant for dashboard questions."""
+    st.markdown("Ask me anything about how to use this dashboard!")
+    
+    # Chat container
+    chat_container = st.container(height=350)
+    with chat_container:
+        for msg in st.session_state.help_chat_history:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+    
+    # Input
+    if user_input := st.chat_input("e.g., What does SHAP mean?", key="help_assistant_input"):
+        st.session_state.help_chat_history.append({"role": "user", "content": user_input})
+        
+        # Get AI response
+        messages = [
+            {"role": "system", "content": f"You are a helpful assistant for the Student Success Dashboard. Answer questions based on this documentation:\n\n{DASHBOARD_HELP_CONTEXT}\n\nBe concise and helpful. If asked about something not in the documentation, say you don't know."},
+            *st.session_state.help_chat_history
+        ]
+        
+        response = get_chat_response(messages)
+        st.session_state.help_chat_history.append({"role": "assistant", "content": response})
+        st.rerun()
 
 # Title
 col_title, col_help = st.columns([0.9, 0.1])
@@ -153,10 +216,18 @@ with col_title:
 with col_help:
     st.write("") # Spacer
     st.write("")
-    if st.button("❓", help="Open Dashboard Guide"):
-        st.session_state.show_guide_dialog = True
-        st.session_state.show_welcome_dialog = False  # Ensure only one dialog
-        st.rerun()
+    # Help Menu with two options
+    help_col1, help_col2 = st.columns(2)
+    with help_col1:
+        if st.button("❓", help="Open Dashboard Guide"):
+            st.session_state.show_guide_dialog = True
+            st.session_state.show_help_assistant = False
+            st.rerun()
+    with help_col2:
+        if st.button("🤖", help="Ask AI Assistant"):
+            st.session_state.show_help_assistant = True
+            st.session_state.show_guide_dialog = False
+            st.rerun()
 
 # Render dialogs based on state (only one can be True at a time)
 if st.session_state.show_welcome_dialog:
@@ -165,6 +236,9 @@ if st.session_state.show_welcome_dialog:
 elif st.session_state.show_guide_dialog:
     st.session_state.show_guide_dialog = False  # Reset for next run
     render_guide()
+elif st.session_state.show_help_assistant:
+    st.session_state.show_help_assistant = False
+    render_help_assistant()
 
 st.markdown("---")
 
@@ -1572,7 +1646,15 @@ if model_artifact is not None and df is not None:
                             
                         # Check Course/App Mode
                         if modified_student["Course"].iloc[0] != selected_student_data["Course"].iloc[0]:
-                            changes_made["Course"] = (selected_student_data["Course"].iloc[0], modified_student["Course"].iloc[0])
+                            old_course_label = course_map.get(int(selected_student_data["Course"].iloc[0]), selected_student_data["Course"].iloc[0])
+                            new_course_label = course_map.get(int(modified_student["Course"].iloc[0]), modified_student["Course"].iloc[0])
+                            changes_made["Course"] = (old_course_label, new_course_label)
+                        
+                        # Check Application Mode
+                        if modified_student["Application_mode"].iloc[0] != selected_student_data["Application_mode"].iloc[0]:
+                            old_app_label = application_mode_map.get(int(selected_student_data["Application_mode"].iloc[0]), selected_student_data["Application_mode"].iloc[0])
+                            new_app_label = application_mode_map.get(int(modified_student["Application_mode"].iloc[0]), modified_student["Application_mode"].iloc[0])
+                            changes_made["Application Mode"] = (old_app_label, new_app_label)
                             
                         # Check Age
                         old_age = get_val("Age_at_enrollment")
@@ -1587,14 +1669,135 @@ if model_artifact is not None and df is not None:
                         st.error(f"Simulation failed: {e}")
 
     with col2:
-        st.subheader("GenAI Insight")
+        st.subheader("🧠 GenAI Insight")
         
         # Prepare data for GenAI
         top_features = list(zip(shap_df['Feature'], shap_df['Impact'])) if not shap_df.empty else []
         
+        # 1. Initial Analysis
         explanation = generate_genai_explanation(selected_student_index, dropout_prob, top_features)
-        
         st.info(explanation)
+        
+        # 2. Interactive Chat
+        st.divider()
+        st.caption("💬 **Ask follow-up questions**")
+        
+        # Unique key for this student's chat
+        chat_key = f"chat_{selected_student_index}"
+        if chat_key not in st.session_state:
+            st.session_state[chat_key] = []
+            
+        # Display container for chat (scrollable)
+        chat_container = st.container(height=400)
+        with chat_container:
+            for msg in st.session_state[chat_key]:
+                with st.chat_message(msg["role"]):
+                    st.markdown(msg["content"])
+
+        # Chat Input
+        if prompt := st.chat_input("Ask about this student...", key=f"input_{selected_student_index}"):
+            # 1. User Message
+            st.session_state[chat_key].append({"role": "user", "content": prompt})
+            with chat_container:
+                with st.chat_message("user"):
+                    st.markdown(prompt)
+                
+                # 2. AI Response
+                with st.chat_message("assistant"):
+                    with st.spinner("Analyzing..."):
+                        # Build FULL Context with actual student data
+                        risk_level_text = "High Risk" if dropout_prob > st.session_state.high_risk_threshold else "Medium Risk" if dropout_prob > st.session_state.low_risk_threshold else "Low Risk"
+                        
+                        context_str = f"""=== STUDENT PROFILE ===
+Student ID: {selected_student_index}
+Risk Level: {risk_level_text} ({dropout_prob:.1%})
+
+Course: {d_course}
+Application Mode: {d_app_mode}
+Age at Enrollment: {v_age}
+Tuition Status: {v_t_status}
+
+1st Semester:
+- Average Grade: {v_g1}/20
+- Lectures Enrolled: {v_e1}
+- Lectures Passed: {v_a1}
+
+2nd Semester:
+- Average Grade: {v_g2}/20
+- Lectures Enrolled: {v_e2}
+- Lectures Passed: {v_a2}
+
+=== KEY RISK/PROTECTIVE FACTORS (SHAP) ===
+"""
+                        for f, v in top_features[:8]:
+                            direction = "↑ increases risk" if v > 0 else "↓ decreases risk"
+                            context_str += f"- {f}: {v:.3f} ({direction})\n"
+                        
+                        messages = [
+                            {"role": "system", "content": f"""You are an expert academic counselor assistant for the Student Success Dashboard.
+
+You have access to the following student data:
+{context_str}
+
+IMPORTANT:
+- Answer questions using the SPECIFIC data provided above.
+- If asked about grades, use the actual grade values shown.
+- If asked about risk factors, reference the SHAP factors.
+- Be professional, empathetic, and concise.
+- If the data doesn't contain information to answer a question, say so."""},
+                            *st.session_state[chat_key]
+                        ]
+                        
+                        response = get_chat_response(messages)
+                        st.markdown(response)
+                        
+            st.session_state[chat_key].append({"role": "assistant", "content": response})
+            # Rerun to update chat state visualization properly if needed, but chat_input handles it mostly.
+            # However, st.chat_input inside a column behaves well usually.
+        
+        # --- PHASE 4: INTERVENTION GUIDANCE ---
+        st.divider()
+        st.markdown("#### 🎯 Intervention Tools")
+        
+        int_col1, int_col2 = st.columns(2)
+        
+        # Build context for intervention generation
+        risk_level = "High Risk" if dropout_prob > st.session_state.high_risk_threshold else "Medium Risk" if dropout_prob > st.session_state.low_risk_threshold else "Low Risk"
+        factors_text = "\n".join([f"- {f}: {v:.3f}" for f, v in top_features[:5]])
+        student_context = f"Student ID: {selected_student_index}\nRisk: {risk_level} ({dropout_prob:.1%})\nKey Factors:\n{factors_text}"
+        
+        with int_col1:
+            if st.button("📧 Generate Email Draft", key=f"email_btn_{selected_student_index}"):
+                with st.spinner("Drafting email..."):
+                    email_prompt = [
+                        {"role": "system", "content": "You are an expert university counselor. Draft a professional, empathetic email to invite this student to a support meeting. Be warm but concise. Include a suggested meeting time placeholder."},
+                        {"role": "user", "content": f"Draft an outreach email for this student:\n\n{student_context}"}
+                    ]
+                    email_draft = get_chat_response(email_prompt)
+                    st.session_state[f"email_draft_{selected_student_index}"] = email_draft
+        
+        with int_col2:
+            if st.button("📋 Generate Action Plan", key=f"plan_btn_{selected_student_index}"):
+                with st.spinner("Creating action plan..."):
+                    plan_prompt = [
+                        {"role": "system", "content": "You are an expert academic advisor. Create a concise 3-step intervention action plan for a counselor to help this at-risk student. Be specific and actionable."},
+                        {"role": "user", "content": f"Create an intervention plan for this student:\n\n{student_context}"}
+                    ]
+                    action_plan = get_chat_response(plan_prompt)
+                    st.session_state[f"action_plan_{selected_student_index}"] = action_plan
+        
+        # Display generated content
+        email_key = f"email_draft_{selected_student_index}"
+        plan_key = f"action_plan_{selected_student_index}"
+        
+        if email_key in st.session_state:
+            with st.expander("📧 Email Draft", expanded=True):
+                st.markdown(st.session_state[email_key])
+                st.button("📋 Copy to Clipboard", key=f"copy_email_{selected_student_index}", help="Use Ctrl+C after selecting text")
+        
+        if plan_key in st.session_state:
+            with st.expander("📋 Action Plan", expanded=True):
+                st.markdown(st.session_state[plan_key])
         
 
 
