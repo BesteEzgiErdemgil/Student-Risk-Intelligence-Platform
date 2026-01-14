@@ -1610,7 +1610,7 @@ if model_artifact is not None and df is not None:
                         st.error(f"Simulation failed: {e}")
 
     with col2:
-        st.subheader("🧠 GenAI Insight")
+        st.subheader("GenAI Insight")
         
         # Prepare data for GenAI
         top_features = list(zip(shap_df['Feature'], shap_df['Impact'])) if not shap_df.empty else []
@@ -1703,7 +1703,7 @@ IMPORTANT:
         
         # --- PHASE 4: INTERVENTION GUIDANCE ---
         st.divider()
-        st.markdown("#### 🎯 Intervention Tools")
+        st.markdown("####Intervention Tools")
         
         int_col1, int_col2 = st.columns(2)
         
@@ -1758,7 +1758,7 @@ Tuition Status: {v_t_status}
 
         
         with int_col1:
-            if st.button("📧 Generate Email Draft", key=f"email_btn_{selected_student_index}"):
+            if st.button("Generate Email Draft", key=f"email_btn_{selected_student_index}"):
                 with st.spinner("Drafting email..."):
                     email_prompt = [
                         {"role": "system", "content": "You are an expert university counselor. Draft a professional, empathetic email to invite this student to a support meeting. Be warm but concise. Include a suggested meeting time placeholder. Use the specific student data (Course, Grades) to make it personal and relevant."},
@@ -1768,7 +1768,7 @@ Tuition Status: {v_t_status}
                     st.session_state[f"email_draft_{selected_student_index}"] = email_draft
         
         with int_col2:
-            if st.button("📋 Generate Action Plan", key=f"plan_btn_{selected_student_index}"):
+            if st.button("Generate Action Plan", key=f"plan_btn_{selected_student_index}"):
                 with st.spinner("Creating action plan..."):
                     plan_prompt = [
                         {"role": "system", "content": f"""You are an expert academic advisor. Create a concise 3-step intervention action plan for a counselor.
