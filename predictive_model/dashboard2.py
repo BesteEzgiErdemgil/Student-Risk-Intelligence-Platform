@@ -1321,32 +1321,41 @@ if model_artifact is not None and df is not None:
 
             
         st.subheader("Risk Score Explanation")
-        with st.spinner("Calculating SHAP values..."):
-            # Pass the dictionary artifact to calculate_shap_values so it can handle the logic
-            # Use a sample of X for background
-            explainer, shap_vals, X_transformed, feature_names = calculate_shap_values(
-                model_artifact, 
-                X.sample(min(100, len(X)), random_state=42) if 'X' in locals() else None, 
-                selected_student_data
-            )
+        
+        # --- CACHED SHAP CALCULATION ---
+        # Cache key based on student ID to prevent re-running on chat interactions
+        shap_cache_key = f"shap_cache_{selected_student_index}"
+        
+        if shap_cache_key not in st.session_state:
+            with st.spinner("Calculating SHAP values..."):
+                # Pass the dictionary artifact to calculate_shap_values so it can handle the logic
+                # Use a sample of X for background
+                st.session_state[shap_cache_key] = calculate_shap_values(
+                    model_artifact, 
+                    X.sample(min(100, len(X)), random_state=42) if 'X' in locals() else None, 
+                    selected_student_data
+                )
+        
+        # Load from cache
+        explainer, shap_vals, X_transformed, feature_names = st.session_state[shap_cache_key]
             
-            # SHAP values for the specific class (Dropout)
-            if isinstance(shap_vals, list):
-                # Multi-class output from KernelExplainer
-                if len(shap_vals) > dropout_idx:
-                    sv = shap_vals[dropout_idx]
-                else:
-                    sv = shap_vals[0] # Fallback
+        # SHAP values for the specific class (Dropout)
+        if isinstance(shap_vals, list):
+            # Multi-class output from KernelExplainer
+            if len(shap_vals) > dropout_idx:
+                sv = shap_vals[dropout_idx]
             else:
-                # Binary / single array
-                # For PyGAM binary, this usually explains P(y=1) (e.g., Graduate)
-                # If 'Dropout' is Class 0, we need to INVERT the SHAP values 
-                # to explain P(Dropout).
-                sv = shap_vals
-                if probs.ndim == 1 and classes[1] != "Dropout":
-                     # Model explains "Graduate". We want "Dropout".
-                     # Invert the impact.
-                     sv = -1 * sv
+                sv = shap_vals[0] # Fallback
+        else:
+            # Binary / single array
+            # For PyGAM binary, this usually explains P(y=1) (e.g., Graduate)
+            # If 'Dropout' is Class 0, we need to INVERT the SHAP values 
+            # to explain P(Dropout).
+            sv = shap_vals
+            if probs.ndim == 1 and classes[1] != "Dropout":
+                 # Model explains "Graduate". We want "Dropout".
+                 # Invert the impact.
+                 sv = -1 * sv
                 
             # Force Plot / Bar Plot logic
             st.markdown("**Why did the model make this prediction?**")
@@ -1695,14 +1704,17 @@ if model_artifact is not None and df is not None:
                     st.markdown(msg["content"])
 
         # Chat Input
+        # Chat Input logic with Rerun Pattern
         if prompt := st.chat_input("Ask about this student...", key=f"input_{selected_student_index}"):
-            # 1. User Message
+            # 1. Save User Message immediately
             st.session_state[chat_key].append({"role": "user", "content": prompt})
+            # 2. Flag to generate response on next run
+            st.session_state[f"gen_resp_{selected_student_index}"] = True
+            st.rerun()
+
+        # Check if we need to generate a response (Triggered by previous rerun)
+        if st.session_state.get(f"gen_resp_{selected_student_index}", False):
             with chat_container:
-                with st.chat_message("user"):
-                    st.markdown(prompt)
-                
-                # 2. AI Response
                 with st.chat_message("assistant"):
                     with st.spinner("Analyzing..."):
                         # Build FULL Context with actual student data
@@ -1750,10 +1762,12 @@ IMPORTANT:
                         
                         response = get_chat_response(messages)
                         st.markdown(response)
-                        
+            
+            # Save Assistant Response
             st.session_state[chat_key].append({"role": "assistant", "content": response})
-            # Rerun to update chat state visualization properly if needed, but chat_input handles it mostly.
-            # However, st.chat_input inside a column behaves well usually.
+            # Clear flag and rerun to finalize state
+            st.session_state[f"gen_resp_{selected_student_index}"] = False
+            st.rerun()
         
         # --- PHASE 4: INTERVENTION GUIDANCE ---
         st.divider()
