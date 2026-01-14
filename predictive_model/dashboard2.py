@@ -1780,16 +1780,32 @@ IMPORTANT:
         int_col1, int_col2 = st.columns(2)
         
         # Build richer context for intervention generation
-        risk_level_text = "High Risk" if dropout_prob > st.session_state.high_risk_threshold else "Medium Risk" if dropout_prob > st.session_state.low_risk_threshold else "Low Risk"
+        risk_label_for_actions = ""
+        risk_label_display = ""
         
+        if dropout_prob > st.session_state.high_risk_threshold:
+             risk_label_for_actions = "High Risk"
+             risk_label_display = "High Risk"
+        elif dropout_prob > st.session_state.low_risk_threshold:
+             risk_label_for_actions = "Medium Risk"
+             risk_label_display = "Medium Risk"
+        else:
+             # Low Risk Logic
+             if dropout_prob < 0.05:
+                 risk_label_for_actions = "Dean's List Students"
+                 risk_label_display = "Dean's List Possible (Low Risk)"
+             else:
+                 risk_label_for_actions = "Likely Graduates"
+                 risk_label_display = "Low Risk"
+
         # Get Available Actions from Global Map
-        available_group_actions = action_map.get(risk_level_text, [])
+        available_group_actions = action_map.get(risk_label_for_actions, [])
         actions_list_str = "\n".join([f"- {a}" for a in available_group_actions])
         
         # Re-construct context string (reusing logic from Chat above for consistency)
         student_full_profile_str = f"""=== STUDENT PROFILE ===
 Student ID: {selected_student_index}
-Risk Level: {risk_level_text} ({dropout_prob:.1%})
+Risk Level: {risk_label_display} ({dropout_prob:.1%})
 
 Course: {d_course}
 Application Mode: {d_app_mode}
@@ -1835,7 +1851,7 @@ IMPORTANT INSTRUCTIONS:
 3. Make the actions specific to the student's situation (e.g. if grades are low, mention specific support).
 4. Be actionable and direct.
 
-AVAILABLE GROUP INTERVENTIONS ({risk_level_text}):
+AVAILABLE GROUP INTERVENTIONS ({risk_label_display}):
 {actions_list_str}
 """},
                         {"role": "user", "content": f"Create an intervention plan for this student:\n\n{student_full_profile_str}"}
