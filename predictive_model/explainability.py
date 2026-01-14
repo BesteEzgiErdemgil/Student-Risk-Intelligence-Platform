@@ -157,14 +157,15 @@ CRITICAL RULES:
 1. ONLY discuss the specific variables that were changed (listed below).
 2. Do NOT mention variables that were NOT changed.
 3. Explain WHY the specific changed variable(s) correlates with dropout risk.
-4. Do NOT suggest interventions or action steps.
-5. Keep response under 80 words. Use markdown bullet points."""},
+4. IDENTIFY which changed variable(s) contributed MOST to the risk change.
+5. Do NOT suggest interventions or action steps.
+6. Keep response under 100 words. Use markdown bullet points."""},
         {"role": "user", "content": f"""A student's dropout risk changed from {old_risk:.1%} to {new_risk:.1%} ({direction} by {abs(improvement):.1%}).
 
 THE ONLY VARIABLE(S) CHANGED:
 {changes_desc}
 
-Explain ONLY why these specific changes affected the risk score. Focus on correlation, not intervention."""}
+Explain ONLY why these specific changes affected the risk score. IMPORTANTLY, identify which of the changed variables had the STRONGEST impact on the risk change and explain why. Focus on correlation, not intervention."""}
     ]
     
     response = get_chat_response(prompt_messages)

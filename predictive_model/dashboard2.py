@@ -1467,6 +1467,18 @@ if model_artifact is not None and df is not None:
 
         # --- Ceteris Paribus / What-If Analysis (Moved) ---
         with st.expander("What-If Analysis"):
+            # Auto-reset form when student changes
+            if "last_cp_student" not in st.session_state:
+                st.session_state.last_cp_student = None
+            
+            if st.session_state.last_cp_student != selected_student_index:
+                # Student changed - clear form state
+                keys = ["cp_tuition", "cp_app_mode", "cp_course", "cp_grade1", "cp_grade2", "cp_app1", "cp_app2", "cp_age"]
+                for k in keys:
+                    if k in st.session_state:
+                        del st.session_state[k]
+                st.session_state.last_cp_student = selected_student_index
+            
             # Wrapper for Reset Logic
             def reset_cp_state():
                 keys = ["cp_tuition", "cp_app_mode", "cp_course", "cp_grade1", "cp_grade2", "cp_app1", "cp_app2", "cp_age"]
