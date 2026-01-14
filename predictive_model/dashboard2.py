@@ -1703,7 +1703,7 @@ IMPORTANT:
         
         # --- PHASE 4: INTERVENTION GUIDANCE ---
         st.divider()
-        st.subheader("Intervention Tools")
+        st.subheader("Intervention SupportTools")
         
         int_col1, int_col2 = st.columns(2)
         
