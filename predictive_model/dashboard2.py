@@ -172,68 +172,7 @@ else:
 # Initialize guide dialog state
 if "show_guide_dialog" not in st.session_state:
     st.session_state.show_guide_dialog = False
-if "show_help_assistant" not in st.session_state:
-    st.session_state.show_help_assistant = False
-if "help_chat_history" not in st.session_state:
-    st.session_state.help_chat_history = []
 
-# --- HELP ASSISTANT DOCUMENTATION ---
-DASHBOARD_HELP_CONTEXT = """
-The Student Success Dashboard is a predictive analytics tool for university counselors.
-
-KEY TERMS:
-- Risk Score: Probability (0-100%) of student dropout. Higher = more risk.
-- High Risk: Above high threshold (default 70%). Immediate intervention needed.
-- Medium Risk: Between thresholds. Monitor closely.
-- Low Risk: Below low threshold (default 30%). Student is on track.
-- SHAP Values: Shows how much each factor contributed to the risk. Red = increases risk, Green = protective.
-- What-If: Simulation to see how changing a variable affects risk.
-
-FEATURES:
-- Sidebar: Adjust thresholds, filter students by Course/Mode/Tuition.
-- Group Overview: Stats for filtered group (counts, average risk).
-- Student List: Click a row to see details. Blue = tracked.
-- Student Profile: Demographics, grades, tuition status.
-- Risk Explanation: Bar charts showing risk/protective factors.
-- GenAI Insight: AI-generated summary and suggestions.
-- Tracking: Mark students and add notes.
-- Simulation: Change values, see new risk.
-
-LIMITATIONS:
-- Predictions are probabilistic, not certainties.
-- Correlation ≠ causation.
-- Combine with professional judgment.
-
-ETHICAL USE:
-- Support students, don't stigmatize.
-- Interventions should be equitable.
-"""
-
-@st.dialog("🤖 Dashboard Help Assistant", width="large")
-def render_help_assistant():
-    """Renders an interactive AI assistant for dashboard questions."""
-    st.markdown("Ask me anything about how to use this dashboard!")
-    
-    # Chat container
-    chat_container = st.container(height=350)
-    with chat_container:
-        for msg in st.session_state.help_chat_history:
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
-    
-    # Input
-    if user_input := st.chat_input("e.g., What does SHAP mean?", key="help_assistant_input"):
-        st.session_state.help_chat_history.append({"role": "user", "content": user_input})
-        
-        # Get AI response
-        messages = [
-            {"role": "system", "content": f"You are a helpful assistant for the Student Success Dashboard. Answer questions based on this documentation:\n\n{DASHBOARD_HELP_CONTEXT}\n\nBe concise and helpful. If asked about something not in the documentation, say you don't know."},
-            *st.session_state.help_chat_history
-        ]
-        
-        response = get_chat_response(messages)
-        st.session_state.help_chat_history.append({"role": "assistant", "content": response})
-        st.rerun()
 
 # Title
 col_title, col_help = st.columns([0.9, 0.1])
@@ -242,29 +181,18 @@ with col_title:
 with col_help:
     st.write("") # Spacer
     st.write("")
-    # Help Menu with two options
-    help_col1, help_col2 = st.columns(2)
-    with help_col1:
-        if st.button("❓", help="Open Dashboard Guide"):
-            st.session_state.show_guide_dialog = True
-            st.session_state.show_help_assistant = False
-            st.rerun()
-    with help_col2:
-        if st.button("🤖", help="Ask AI Assistant"):
-            st.session_state.show_help_assistant = True
-            st.session_state.show_guide_dialog = False
-            st.rerun()
+    # Help Menu
+    if st.button("❓", help="Open Dashboard Guide"):
+        st.session_state.show_guide_dialog = True
+        st.rerun()
 
-# Render dialogs based on state (only one can be True at a time)
+# Render dialogs based on state
 if st.session_state.show_welcome_dialog:
     st.session_state.show_welcome_dialog = False  # Reset for next run
     render_welcome()
 elif st.session_state.show_guide_dialog:
     st.session_state.show_guide_dialog = False  # Reset for next run
     render_guide()
-elif st.session_state.show_help_assistant:
-    st.session_state.show_help_assistant = False
-    render_help_assistant()
 
 st.markdown("---")
 
