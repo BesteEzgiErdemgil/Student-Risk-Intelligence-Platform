@@ -175,7 +175,7 @@ if "show_guide_dialog" not in st.session_state:
 
 
 # Title
-col_title, col_help = st.columns([0.9, 0.1])
+col_title, col_help = st.columns([0.95, 0.05])
 with col_title:
     st.title("Student Success & Support Dashboard")
 with col_help:
