@@ -2,8 +2,9 @@
 > **From Prediction to Prevention: Empowering Counselors with Explainable AI**
 
 [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
-[![Streamlit](https://img.smiling.pink/badge/Streamlit-App-FF4B4B.svg)](https://streamlit.io/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B?style=flat&logo=streamlit)](https://streamlit.io/)
 [![OpenAI](https://img.shields.io/badge/GenAI-OpenAI-412991.svg)](https://openai.com/)
+[![EDA](https://img.shields.io/badge/Analysis-EDA-orange.svg)](#-data-analysis--exploration)
 
 An interactive, human-centered **Streamlit dashboard** designed to help university counselors identify at-risk students and intervene early. By combining advanced predictive modeling with transparency through Explainable AI (XAI) and Generative AI (GenAI), this tool transforms raw student data into actionable insights.
 
@@ -55,9 +56,21 @@ We built a predictive system that not only flags "who" is at risk but explains *
 
 ---
 
+## 📊 Data Analysis & Exploration
+
+Before building the predictive model, we conducted extensive Exploratory Data Analysis (EDA) and statistical testing to understand the factors driving student success:
+
+- **Univariate & Categorical Analysis**: Detailed breakdown of student demographics and their correlation with graduation vs. dropout rates.
+- **Feature Selection**: Statistical filtering to identify the most impactful predictors (e.g., tuition status, 1st and 2nd semester academic performance).
+- **Statistical Distributions**: Comprehensive analysis of data distribution, skewness, and normality to optimize model performance.
+
+*All research notebooks can be found in the `data analysis/` directory.*
+
+---
+
 ## Technical Stack
 
-- **Frontend**: [Streamlit](https://streamlit.io/) (Python-based interactive dashboard)
+- **Frontend**: Streamlit (Python-based interactive dashboard)
 - **Data Processing**: `Pandas`, `NumPy`
 - **Machine Learning**: `PyGAM` (Generalized Additive Models), `Scikit-learn`
 - **Explainability**: `SHAP` (Shapley Additive Explanations)
